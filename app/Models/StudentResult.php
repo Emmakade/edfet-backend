@@ -8,12 +8,28 @@ use Illuminate\Database\Eloquent\Model;
 class StudentResult extends Model
 {
     protected $fillable = [
-        'student_id',
-        'school_class_id',
+        'enrollment_id',
         'term_id',
-        'session_id',
         'total_score',
         'average_score',
         'overall_position'
     ];
+
+    public function enrollment()
+    {
+        return $this->belongsTo(Enrollment::class);
+    }
+
+    // 🔥 Access student through enrollment
+    public function student()
+    {
+        return $this->hasOneThrough(
+            Student::class,
+            Enrollment::class,
+            'id',
+            'id',
+            'enrollment_id',
+            'student_id'
+        );
+    }
 }

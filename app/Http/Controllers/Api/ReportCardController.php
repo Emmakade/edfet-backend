@@ -9,135 +9,148 @@ use App\Models\School;
 use App\Models\SessionModel;
 use App\Models\Term;
 use App\Models\StudentResult;
+use App\Models\SubjectResult;
 use App\Models\SchoolClass;
+use App\Models\Enrollment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use App\Services\ResultBuilderService;
+use App\Services\RemarkService;
 
 class ReportCardController extends Controller
 {
+    public function __construct(
+        ResultBuilderService $builder,
+        RemarkService $remarkService
+    ) {
+        $this->builder = $builder;
+        $this->remarkService = $remarkService;
+    }
 
     public function generate(Request $request, $studentId)
     {
-        $request->validate([
+        $data = $request->validate([
             'school_class_id' => 'required|exists:school_classes,id',
             'term_id' => 'required|exists:terms,id',
             'session_id' => 'required|exists:sessions,id',
         ]);
-       
-        $student = Student::with(['schoolClass', 'user'])->findOrFail($studentId);
+
         $school = School::first();
-        $class = SchoolClass::findOrFail($request->school_class_id);
-        $term = Term::findOrFail($request->term_id);
-        $session = SessionModel::findOrFail($request->session_id);
+        $term = Term::findOrFail($data['term_id']);
+        $session = SessionModel::findOrFail($data['session_id']);
 
         if ($term->session_id !== $session->id) {
-            return response()->json(['message' => 'Term does not belong to the selected session'], 422);
+            return response()->json(['message' => 'Invalid term/session'], 422);
         }
-     
-        $scores = Score::with('subject:id,name')
-            ->where('student_id', $studentId)
-            ->where('school_class_id', $request->school_class_id)
-            ->where('term_id', $request->term_id)
-            ->where('session_id', $request->session_id)
-            ->get();
 
-        $result = StudentResult::where('student_id', $studentId)
-            ->where('school_class_id', $request->school_class_id)
-            ->where('term_id', $request->term_id)
-            ->where('session_id', $request->session_id)
-            ->first();
-        $logo = base64_encode(file_get_contents(public_path('images/logo.png')));
+        // ✅ Resolve enrollment
+        $enrollment = Enrollment::where([
+            'student_id' => $studentId,
+            'school_class_id' => $data['school_class_id'],
+            'session_id' => $data['session_id'],
+        ])->firstOrFail();
+
+        // ✅ Build report data
+        $report = $this->builder->buildStudentReport(
+            $enrollment->id,
+            $data['term_id']
+        );
+
+        // ✅ Remarks
+        $remark = $this->remarkService->store(
+            $enrollment->id,
+            $data['term_id']
+        );
+
         $pdf = Pdf::loadView('pdf.report_card', [
-            'student' => $student,
-            'scores' => $scores,
-            'result' => $result,
             'school' => $school,
-            'class' => $class,
-            'session' => $session->name,
+            'student' => $report['student'],
+            'subjects' => $report['subjects'], // 🔥 key change
+            'result' => $report['result'],
+            'class' => $report['enrollment']->schoolClass,
             'term' => $term->name,
+            'session' => $session->name,
             'attendance' => [
                 'opened' => 75,
                 'present' => 70,
             ],
-            'teacher_remark' => 'Keep improving!',
-            'head_remark' => 'Excellent progress.',
+            'teacher_remark' => $remark->class_teacher_remark ?? '',
+            'head_remark' => $remark->head_teacher_remark ?? '',
             'logo' => public_path('images/logo.png'),
-            'next_term' => '10th May 2026',
+            'next_term' => \Carbon\Carbon::parse($school->next_term_begins)->format('jS F Y'),
         ]);
-       
-        return $pdf->download('report-card.pdf');
+
+        return $pdf->download("report-card-{$studentId}.pdf");
     }
 
-    public function generateClass(Request $request)
+    public function generateClass($classId, $termId, $sessionId)
     {
-        $request->validate([
-            'classId' => 'required|exists:school_classes,id',
-            'termId' => 'required|exists:terms,id',
-            'sessionId' => 'required|exists:sessions,id',
-        ]);
-
         $school = School::first();
-        $term = Term::findOrFail($request->termId);
-        $session = SessionModel::findOrFail($request->sessionId);
+        $term = Term::findOrFail($termId);
+        $session = SessionModel::findOrFail($sessionId);
 
         if ($term->session_id !== $session->id) {
-            return response()->json(['message' => 'Term does not belong to the selected session'], 422);
+            return response()->json(['message' => 'Invalid term/session'], 422);
         }
 
-        $students = Student::with(['schoolClass', 'user'])
-            ->where('school_class_id', $request->classId)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
+        $enrollments = Enrollment::with(['student.user', 'schoolClass'])
+            ->where('school_class_id', $classId)
+            ->where('session_id', $sessionId)
             ->get();
 
-        if ($students->isEmpty()) {
-            abort(404, 'No students found for this class.');
+        if ($enrollments->isEmpty()) {
+            abort(404, 'No students found.');
         }
 
-        $scoresByStudent = Score::with('subject')
-            ->whereIn('student_id', $students->pluck('id'))
-            ->where('school_class_id', $request->classId)
-            ->where('term_id', $request->termId)
-            ->where('session_id', $request->sessionId)
+        // 🔥 PRELOAD ALL RESULTS (PERFORMANCE BOOST)
+        $subjectResults = SubjectResult::with('subject')
+            ->whereIn('enrollment_id', $enrollments->pluck('id'))
+            ->where('term_id', $termId)
             ->get()
-            ->map(function ($score) {
-                $score->ca = $score->ca_score;
-                $score->exam = $score->exam_score;
+            ->groupBy('enrollment_id');
 
-                return $score;
-            })
-            ->groupBy('student_id');
+        $overallResults = StudentResult::whereIn('enrollment_id', $enrollments->pluck('id'))
+            ->where('term_id', $termId)
+            ->get()
+            ->keyBy('enrollment_id');
 
-        $html = $students->map(function ($student) use ($school, $scoresByStudent, $request) {
-            $student->name = trim(
-                collect([
-                    $student->first_name,
-                    $student->last_name,
-                ])->filter()->implode(' ')
-            ) ?: optional($student->user)->name ?: 'Unknown Student';
+        $html = $enrollments->map(function ($enrollment) use (
+            $school,
+            $subjectResults,
+            $overallResults,
+            $term,
+            $session,
+            $termId
+        ) {
 
-            $student->class = $student->schoolClass;
+            $remark = $this->remarkService->store(
+                $enrollment->id,
+                $termId
+            );
 
             return view('pdf.report_card', [
                 'school' => $school,
-                'student' => $student,
-                'scores' => $scoresByStudent->get($student->id, collect()),
-                'class' => $student->schoolClass,
+                'student' => $enrollment->student,
+                'subjects' => $subjectResults->get($enrollment->id, collect()),
+                'result' => $overallResults->get($enrollment->id),
+                'class' => $enrollment->schoolClass,
                 'term' => $term->name,
                 'session' => $session->name,
                 'attendance' => [
                     'opened' => 75,
                     'present' => 70,
                 ],
-                'teacher_remark' => 'Keep improving!',
-                'head_remark' => 'Excellent progress.',
+                'teacher_remark' => $remark->class_teacher_remark ?? '',
+                'head_remark' => $remark->head_teacher_remark ?? '',
                 'logo' => public_path('images/logo.png'),
-                'next_term' => '10th May 2026',
+                'next_term' => \Carbon\Carbon::parse($school->next_term_begins)->format('jS F Y'),
             ])->render();
+
         })->implode('<div style="page-break-after: always;"></div>');
 
-        $pdf = Pdf::loadHTML($html);
-
-        return $pdf->download("report_cards_class_{$request->classId}.pdf");
+        return Pdf::loadHTML($html)
+            ->download("report_cards_class_{$classId}.pdf");
     }
 }
+
+

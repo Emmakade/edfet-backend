@@ -25,7 +25,6 @@ class ClassSummarySeeder extends Seeder
             'name' => 'First Term',
         ]);
 
-        // ✅ Correctly use SessionModel now
         $session = SessionModel::first() ?? SessionModel::create([
             'name' => '2024/2025',
             'year_start' => now()->startOfYear(),

@@ -14,7 +14,7 @@ class Enrollment extends Model
         return $this->belongsTo(Student::class);
     }
 
-    public function class(): BelongsTo
+    public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class, 'school_class_id');
     }
@@ -22,5 +22,9 @@ class Enrollment extends Model
     public function session()
     {
         return $this->belongsTo(SessionModel::class);
+    }
+    public function scores()
+    {
+        return $this->hasMany(\App\Models\Score::class);
     }
 }

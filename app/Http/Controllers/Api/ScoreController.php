@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Score;
 use App\Models\GradeBoundary;
+use App\Models\Enrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\Score\ScoreStoreRequest;
@@ -19,117 +20,80 @@ class ScoreController extends Controller
         $this->resultComputationService = $resultComputationService;
     }
 
-    public function store(ScoreStoreRequest $request)
-    {
-        $data = $request->validated();
-
-        return DB::transaction(function () use ($data) {
-            $score = Score::updateOrCreate(
-                [
-                    'student_id' => $data['student_id'],
-                    'subject_id' => $data['subject_id'],
-                    'school_class_id' => $data['school_class_id'],
-                    'term_id' => $data['term_id'],
-                    'session_id' => $data['session_id'],
-                ],
-                [
-                    'ca_score' => $data['ca_score'] ?? 0,
-                    'exam_score' => $data['exam_score'] ?? 0,
-                ]
-            );
-
-            $total = ($score->ca_score ?? 0) + ($score->exam_score ?? 0);
-            $boundary = GradeBoundary::findByScore((int) round($total));
-
-            $score->update([
-                'total' => $total,
-                'grade' => $boundary?->grade,
-                'remark' => $boundary?->remark,
-            ]);
-
-            // Recompute positions + cache
-            $this->resultComputationService->computeClassResult(
-                $data['school_class_id'], //changed from "class_id"
-                $data['term_id'],
-                $data['session_id']
-            );
-
-            $this->resultComputationService->computeOverallResults(
-               $data['school_class_id'],
-                $data['term_id'],
-                $data['session_id']
-            );
-
-            return response()->json([
-                'message' => 'Score saved successfully, and positions updated.',
-                'score' => $score
-            ]);
-        });
-    }
-
-    public function bulkUpdate(Request $request)
+    public function storeBulkScores(Request $request)
     {
         $this->authorize('enter-scores');
 
         $payload = $request->validate([
             'scores' => ['required', 'array'],
-            'scores.*.student_id' => ['required', 'exists:students,id'],
+            'scores.*.enrollment_id' => ['required', 'exists:enrollments,id'],
             'scores.*.subject_id' => ['required', 'exists:subjects,id'],
-            'scores.*.term_id' => ['required', 'exists:terms,id'],
-            'scores.*.session_id' => ['required', 'exists:sessions,id'],
-            'scores.*.school_class_id' => ['required', 'exists:school_classes,id'],
-            'scores.*.ca_score' => ['nullable', 'numeric', 'min:0', 'max:40'],
-            'scores.*.exam_score' => ['nullable', 'numeric', 'min:0', 'max:60'],
+            'scores.*.assessment_id' => ['required', 'exists:assessments,id'],
+            'scores.*.score' => ['required', 'numeric', 'min:0'],
+            'term_id' => ['required', 'exists:terms,id'],
+            'session_id' => ['required', 'exists:sessions,id'],
+            'school_class_id' => ['required', 'exists:school_classes,id'],
         ]);
 
         return DB::transaction(function () use ($payload) {
 
-            foreach ($payload['scores'] as $s) {
+            $saved = [];
+            $failed = [];
 
-                $ca = $s['ca_score'] ?? 0;
-                $exam = $s['exam_score'] ?? 0;
-                $total = $ca + $exam;
+            foreach ($payload['scores'] as $item) {
 
-                $boundary = GradeBoundary::findByScore((int) round($total));
+                try {
+                    $score = Score::updateOrCreate(
+                        [
+                            'enrollment_id' => $item['enrollment_id'],
+                            'subject_id' => $item['subject_id'],
+                            'assessment_id' => $item['assessment_id'],
+                        ],
+                        [
+                            'score' => $item['score'],
+                        ]
+                    );
 
-                Score::updateOrCreate(
-                    [
-                        'student_id' => $s['student_id'],
-                        'subject_id' => $s['subject_id'],
-                        'term_id' => $s['term_id'],
-                        'session_id' => $s['session_id'],
-                        'school_class_id' => $s['school_class_id'], 
-                    ],
-                    [
-                        'ca_score' => $ca,
-                        'exam_score' => $exam,
-                        'total' => $total,
-                        'grade' => $boundary?->grade,
-                        'remark' => $boundary?->remark,
-                    ]
-                );
+                    // 🔥 Compute subject result immediately
+                    app(ResultComputationService::class)
+                        ->computeSubjectResult(
+                            $item['enrollment_id'],
+                            $item['subject_id'],
+                            $payload['term_id']
+                        );
+
+                    $saved[] = $score;
+
+                } catch (\Throwable $e) {
+                    $failed[] = [
+                        'data' => $item,
+                        'error' => $e->getMessage()
+                    ];
+                }
             }
 
-            $first = $payload['scores'][0];
-
-            $this->resultComputationService->computeClassResult(
-                $first['school_class_id'], 
-                $first['term_id'],
-                $first['session_id']
+            // 🔥 Compute once (NOT inside loop)
+            $this->resultComputationService->computeClassSubjectStats(
+                $payload['school_class_id'],
+                $payload['term_id'],
+                $payload['session_id']
             );
 
             $this->resultComputationService->computeOverallResults(
-                $first['school_class_id'], 
-                $first['term_id'],
-                $first['session_id']
+                $payload['school_class_id'],
+                $payload['term_id'],
+                $payload['session_id']
             );
 
             return response()->json([
-                'message' => 'Bulk update completed and positions updated.',
-                'updated_count' => count($payload['scores'])
+                'message' => 'Bulk score upload processed',
+                'saved_count' => count($saved),
+                'failed_count' => count($failed),
+                'failures' => $failed
             ]);
         });
     }
+
 
     public function show(Score $score)
     {

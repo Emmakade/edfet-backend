@@ -12,9 +12,10 @@ class CreateStudentsTable extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // optional link to user (parent/student)
             $table->string('first_name');
-            $table->string('last_name')->nullable();
-            $table->enum('gender', ['male','female','other'])->nullable();
-            $table->string('admission_number')->unique();
+            $table->string('middle_name')->nullable();
+            $table->string('surname')->nullable();
+            $table->enum('gender', ['male','female'])->nullable();
+            $table->string('admission_number')->nullable()->unique();
             $table->foreignId('school_class_id')->nullable()->constrained('school_classes')->nullOnDelete();
             $table->date('date_of_birth')->nullable();
             $table->string('photo_url')->nullable();

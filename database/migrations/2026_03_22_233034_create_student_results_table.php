@@ -14,20 +14,16 @@ return new class extends Migration
         Schema::create('student_results', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('student_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('school_class_id')->constrained('school_classes')->cascadeOnDelete();
+            $table->foreignId('enrollment_id')->constrained()->cascadeOnDelete();
             $table->foreignId('term_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('session_id')->constrained()->cascadeOnDelete();
 
-            $table->decimal('total_score', 8, 2)->default(0);
+            $table->integer('total_score')->nullable();
             $table->decimal('average_score', 6, 2)->default(0);
             $table->integer('overall_position')->nullable();
 
             $table->timestamps();
 
-            $table->unique([
-                'student_id','school_class_id','term_id','session_id'
-            ], 'unique_student_result');
+            $table->unique(['enrollment_id', 'term_id'], 'unique_student_term_result');
         });
     }
 

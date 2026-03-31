@@ -9,116 +9,48 @@ use App\Models\StudentResult;
 
 class ResultComputationService
 {
-    public function computeClassResult($classId, $termId, $sessionId)
-    {
-        $scores = Score::with(['student', 'subject'])
-            ->where('school_class_id', $classId)
-            ->where('term_id', $termId)
-            ->where('session_id', $sessionId)
-            ->get();
-
-        if ($scores->isEmpty()) {
-            return ['message' => 'No scores found'];
-        }
-
-        $grouped = $scores->groupBy('subject_id');
-
-        foreach ($grouped as $subjectId => $subjectScores) {
-            $totals = $subjectScores->pluck('total')->filter()->toArray();
-
-            $classAvg = round(collect($totals)->avg(), 2);
-            $classHigh = collect($totals)->max();
-            $classLow = collect($totals)->min();
-
-            // Rank students
-            $ranked = $subjectScores->sortByDesc('total')->values();
-
-            foreach ($ranked as $index => $score) {
-                $position = $index + 1;
-                $boundary = GradeBoundary::findByScore((int) round($score->total));
-
-                $score->update([
-                    'grade' => $boundary?->grade,
-                    'remark' => $boundary?->remark,
-                    'class_average' => $classAvg,
-                    'class_highest' => $classHigh,
-                    'class_lowest' => $classLow,
-                    'subject_position' => $position,
-                ]);
-            }
-
-            // Cache summary for this class + subject + term
-            ClassSummary::updateOrCreate(
-                [
-                    'school_class_id' => $classId,
-                    'term_id' => $termId,
-                    'session_id' => $sessionId,
-                    'subject_id' => $subjectId,
-                ],
-                [
-                    'average' => $classAvg,
-                    'highest' => $classHigh,
-                    'lowest' => $classLow,
-                ]
-            );
-        }
-
-        return ['status' => 'ok', 'message' => 'Computation complete'];
-    }
-
     public function computeOverallResults($classId, $termId, $sessionId)
     {
-        // Get all scores for class
-        $scores = Score::where('school_class_id', $classId)
-            ->where('term_id', $termId)
-            ->where('session_id', $sessionId)
-            ->get();
+        $results = SubjectResult::where('term_id', $termId)
+            ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
+                $q->where('school_class_id', $classId)
+                ->where('session_id', $sessionId);
+            })
+            ->get()
+            ->groupBy('enrollment_id');
 
-        if ($scores->isEmpty()) {
-            return ['message' => 'No scores found'];
-        }
+        $final = [];
 
-        // Group by student
-        $grouped = $scores->groupBy('student_id');
+        foreach ($results as $enrollmentId => $subjects) {
 
-        $results = [];
+            $total = $subjects->sum('total');
+            $avg = round($subjects->avg('total'), 2);
 
-        foreach ($grouped as $studentId => $studentScores) {
-
-            $total = $studentScores->sum('total');
-            $count = $studentScores->count();
-            $average = $count > 0 ? round($total / $count, 2) : 0;
-
-            $results[] = [
-                'student_id' => $studentId,
+            $final[] = [
+                'enrollment_id' => $enrollmentId,
                 'total' => $total,
-                'average' => $average
+                'average' => $avg
             ];
         }
 
-        // 🔥 SORT DESC (highest first)
-        usort($results, fn($a, $b) => $b['total'] <=> $a['total']);
+        usort($final, fn($a, $b) => $b['total'] <=> $a['total']);
 
-        // 🔥 ASSIGN POSITIONS (TIE-SAFE)
         $position = 1;
-        $prevScore = null;
+        $prev = null;
         $skip = 0;
 
-        foreach ($results as $index => $res) {
+        foreach ($final as $index => $res) {
 
-            if ($prevScore !== null && $res['total'] == $prevScore) {
+            if ($prev !== null && $res['total'] == $prev) {
                 $skip++;
             } else {
-                $position = $index + 1;
-                $position -= $skip;
+                $position = $index + 1 - $skip;
             }
 
             StudentResult::updateOrCreate(
                 [
-                    'student_id' => $res['student_id'],
-                    'school_class_id' => $classId,
+                    'enrollment_id' => $res['enrollment_id'],
                     'term_id' => $termId,
-                    'session_id' => $sessionId,
                 ],
                 [
                     'total_score' => $res['total'],
@@ -127,9 +59,78 @@ class ResultComputationService
                 ]
             );
 
-            $prevScore = $res['total'];
+            $prev = $res['total'];
         }
+    }
 
-        return ['status' => 'ok', 'message' => 'Overall results computed'];
+    public function computeSubjectResult($enrollmentId, $subjectId, $termId)
+    {
+        $scores = Score::with('assessment')
+            ->where('enrollment_id', $enrollmentId)
+            ->where('subject_id', $subjectId)
+            ->get();
+
+        if ($scores->isEmpty()) return;
+
+        $total = $scores->sum('score');
+
+        $boundary = GradeBoundary::findByScore((int) round($total));
+
+        SubjectResult::updateOrCreate(
+            [
+                'enrollment_id' => $enrollmentId,
+                'subject_id' => $subjectId,
+                'term_id' => $termId,
+            ],
+            [
+                'total' => $total,
+                'grade' => $boundary?->grade,
+                'remark' => $boundary?->remark,
+            ]
+        );
+    }
+
+    public function computeClassSubjectStats($classId, $termId, $sessionId)
+    {
+        $results = SubjectResult::where('term_id', $termId)
+            ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
+                $q->where('school_class_id', $classId)
+                ->where('session_id', $sessionId);
+            })
+            ->get()
+            ->groupBy('subject_id');
+
+        foreach ($results as $subjectId => $group) {
+
+            $totals = $group->pluck('total');
+
+            $avg = round($totals->avg(), 2);
+            $high = $totals->max();
+            $low = $totals->min();
+
+            $ranked = $group->sortByDesc('total')->values();
+
+            $position = 1;
+            $prev = null;
+            $skip = 0;
+
+            foreach ($ranked as $index => $res) {
+
+                if ($prev !== null && $res->total == $prev) {
+                    $skip++;
+                } else {
+                    $position = $index + 1 - $skip;
+                }
+
+                $res->update([
+                    'subject_position' => $position,
+                    'class_average' => $avg,
+                    'class_highest' => $high,
+                    'class_lowest' => $low,
+                ]);
+
+                $prev = $res->total;
+            }
+        }
     }
 }

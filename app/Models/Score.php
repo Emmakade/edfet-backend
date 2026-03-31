@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Score extends Model
 {
     protected $fillable = [
-        'student_id',
+        'enrollment_id',
         'subject_id',
-        'school_class_id',
         'term_id',
-        'session_id',
+        'assessment_id',
+        'score',
         'ca_score',
         'exam_score',
         'total',
@@ -28,26 +28,39 @@ class Score extends Model
         'ca_score' => 'decimal:2',
         'exam_score' => 'decimal:2',
         'total' => 'decimal:2',
-        'position' => 'integer'
+        'subject_position' => 'integer'
     ];
 
-    public function student(): BelongsTo
+    public function enrollment()
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Enrollment::class);
     }
 
-    public function subject(): BelongsTo
+    public function subject()
     {
         return $this->belongsTo(Subject::class);
     }
 
-    public function term(): BelongsTo
+    public function term()
     {
         return $this->belongsTo(Term::class);
     }
 
-    public function session()
+    public function assessment()
     {
-        return $this->belongsTo(SessionModel::class);
+        return $this->belongsTo(Assessment::class);
+    }
+
+    // 🔥 Access student THROUGH enrollment
+    public function student()
+    {
+        return $this->hasOneThrough(
+            Student::class,
+            Enrollment::class,
+            'id',
+            'id',
+            'enrollment_id',
+            'student_id'
+        );
     }
 }

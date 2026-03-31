@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             \Database\Seeders\GradeBoundariesSeeder::class,
             \Database\Seeders\SampleDataSeeder::class,
             \Database\Seeders\ClassSummarySeeder::class,
+            \Database\Seeders\RemarkTemplateSeeder::class,
         ]);
     }
 }

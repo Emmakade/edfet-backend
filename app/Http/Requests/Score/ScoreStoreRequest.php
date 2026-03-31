@@ -15,13 +15,13 @@ class ScoreStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_id' => ['required','exists:students,id'],
+            'enrollment_id' => ['required','exists:enrollments,id'],
             'subject_id' => ['required','exists:subjects,id'],
             'term_id' => ['required','exists:terms,id'],
+            'assessment_id' => ['required','exists:assessments,id'],
             'school_class_id' => ['required','exists:school_classes,id'],
             'session_id' => ['required','exists:sessions,id'],
-            'ca_score' => ['nullable','numeric','min:0','max:100'],
-            'exam_score' => ['nullable','numeric','min:0','max:100'],
+            'score' => ['nullable','numeric','min:0','max:100'],
         ];
     }
 }

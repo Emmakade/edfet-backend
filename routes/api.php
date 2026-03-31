@@ -9,6 +9,15 @@ use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\ReportCardController;
+use App\Http\Controllers\Api\EnrollmentController;
+use App\Http\Controllers\Api\SessionController;
+use App\Http\Controllers\Api\TermController;
+use App\Http\Controllers\Api\ExamController;
+use App\Http\Controllers\Api\GradeBoundaryController;
+use App\Http\Controllers\Api\RemarkController;
+use App\Http\Controllers\Api\ClassSummaryController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\AssessmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,44 +67,45 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('scores/class/{classId}/{subjectId}/{termId}/{sessionId}', [ScoreController::class, 'getByClassSubject']);
 
     // Sessions - academic sessions management
-    Route::apiResource('sessions', 'App\Http\Controllers\Api\SessionController');
+    Route::apiResource('sessions', SessionController::class);
 
     // Terms - academic terms within sessions
-    Route::apiResource('terms', 'App\Http\Controllers\Api\TermController');
+    Route::apiResource('terms', TermController::class);
 
     // Enrollments - student enrollments in classes
-    Route::apiResource('enrollments', 'App\Http\Controllers\Api\EnrollmentController');
+    Route::apiResource('enrollments', EnrollmentController::class);
+    Route::post('enrollments/promote', [EnrollmentController::class, 'promote']);
 
-    // Exams - exam management
-    Route::apiResource('exams', 'App\Http\Controllers\Api\ExamController');
+    // Assessments - exam management
+    Route::apiResource('assessments', AssessmentController::class);
 
     // Grade Boundaries - grading scale management
-    Route::apiResource('grade-boundaries', 'App\Http\Controllers\Api\GradeBoundaryController');
+    Route::apiResource('grade-boundaries', GradeBoundaryController::class);
 
     // Remarks - remark templates management
-    Route::apiResource('remarks', 'App\Http\Controllers\Api\RemarkController');
+    Route::apiResource('remarks', RemarkController::class);
 
     // Class Summaries - class performance summaries
-    Route::get('class-summaries/{class_id}/{term_id}/{session_id}', 'App\Http\Controllers\Api\ClassSummaryController@show');
-    Route::get('class-summaries', 'App\Http\Controllers\Api\ClassSummaryController@index');
+    Route::get('class-summaries/{class_id}/{term_id}/{session_id}', [ClassSummaryController::class, 'show']);
+    Route::get('class-summaries', [ClassSummaryController::class, 'index']);
 
     // Report Generation
     Route::get('report-card/{studentId}', [ReportCardController::class, 'generate']);
     Route::get('report-card/class/{classId}/{termId}/{sessionId}', [ReportCardController::class, 'generateClass']);
-    //Route::get('report-card/class/{classId}/{termId}/{sessionId}', 'App\Http\Controllers\Api\ReportController@classReport');
-    //Route::get('report-card/term/{termId}/{sessionId}', 'App\Http\Controllers\Api\ReportController@termReport');
 
     // Dashboard & Analytics
-    Route::get('dashboard/school-stats', 'App\Http\Controllers\Api\DashboardController@schoolStats');
-    Route::get('dashboard/class-performance/{classId}/{termId}/{sessionId}', 'App\Http\Controllers\Api\DashboardController@classPerformance');
-    Route::get('dashboard/student-progress/{studentId}', 'App\Http\Controllers\Api\DashboardController@studentProgress');
+    Route::get('dashboard/school-stats', [DashboardController::class, 'schoolStats']);
+    Route::get('dashboard/class-performance/{classId}/{termId}/{sessionId}', [DashboardController::class, 'classPerformance']);
+    Route::get('dashboard/student-progress/{studentId}', [DashboardController::class, 'studentProgress']);
 
     // Utility endpoints
-    Route::get('current-session', 'App\Http\Controllers\Api\SessionController@current');
-    Route::get('current-term', 'App\Http\Controllers\Api\TermController@current');
+    Route::get('current-session', [SessionController::class, 'current']);
+    Route::get('current-term', [TermController::class, 'current']);
     Route::get('active-classes', [ClassController::class, 'active']);
     Route::get('subjects/class/{classId}', [SubjectController::class, 'getByClass']);
 
-    //TODO: Additional endpoints 
-    // - bulk student import/export, attendance analytics, e.t.c.
+    Route::post('students/import', [StudentController::class, 'import']);
+    Route::get('students/export', [StudentController::class, 'export']);
+    Route::get('attendance/analytics', [AttendanceController::class, 'analytics']);
 });
+
