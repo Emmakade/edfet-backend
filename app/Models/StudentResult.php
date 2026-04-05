@@ -7,12 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class StudentResult extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'enrollment_id',
         'term_id',
         'total_score',
         'average_score',
-        'overall_position'
+        'overall_position',
+    ];
+
+    protected $casts = [
+        'enrollment_id' => 'integer',
+        'term_id' => 'integer',
+        'total_score' => 'integer',
+        'average_score' => 'float',
+        'overall_position' => 'integer',
     ];
 
     public function enrollment()
@@ -20,7 +30,6 @@ class StudentResult extends Model
         return $this->belongsTo(Enrollment::class);
     }
 
-    // 🔥 Access student through enrollment
     public function student()
     {
         return $this->hasOneThrough(
@@ -31,5 +40,10 @@ class StudentResult extends Model
             'enrollment_id',
             'student_id'
         );
+    }
+
+    public function term()
+    {
+        return $this->belongsTo(Term::class);
     }
 }

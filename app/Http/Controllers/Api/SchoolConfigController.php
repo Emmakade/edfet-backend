@@ -9,6 +9,17 @@ use Illuminate\Http\Request;
 
 class SchoolConfigController extends Controller
 {
+    // store new school config
+    public function store(SchoolConfigRequest $request)
+    {
+        $data = $request->validated();
+        $school = new School();
+        $school->fill($data);
+        $school->save();
+
+        return response()->json($school, 201);
+    }
+
     // show current school config (assumes single school)
     public function show()
     {
@@ -26,4 +37,5 @@ class SchoolConfigController extends Controller
 
         return response()->json($school);
     }
+    
 }

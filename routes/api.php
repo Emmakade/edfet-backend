@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\RemarkController;
 use App\Http\Controllers\Api\ClassSummaryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AssessmentController;
+use App\Http\Controllers\Api\ClassSubjectController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +40,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
 
     // School config - only super-admin (enforced by FormRequest)
+    Route::post('school', [SchoolConfigController::class, 'store']);
     Route::get('school', [SchoolConfigController::class, 'show']);
     Route::put('school', [SchoolConfigController::class, 'update']);
 
@@ -49,8 +51,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('subjects', SubjectController::class)->only(['index','store','update','destroy']);
 
     // Students - class teachers and super-admins
+    Route::get('students/export-enrollments', [StudentController::class, 'exportStudentsWithEnrollments']);
     Route::apiResource('students', StudentController::class);
     Route::get('students/class/{classId}', [StudentController::class, 'getByClass']);
+    Route::post('students/import-student', [StudentController::class, 'importStudent']);
+    Route::post('students/import', [StudentController::class, 'import']);
+    Route::get('students/{studentId}/subjects/{sessionId}', [ClassSubjectController::class, 'getStudentSubjects']);
+    
 
     // Attendance
     Route::post('attendances', [AttendanceController::class, 'store']);
@@ -58,13 +65,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('attendances/class/{classId}/{session}/{term}', [AttendanceController::class, 'getByClass']);
 
     // Scores
-    Route::post('scores', [ScoreController::class, 'store']);
-    Route::post('scores/bulk', [ScoreController::class, 'bulkUpdate']);
-    Route::post('scores/recompute', [ScoreController::class, 'recomputeAll']);
-    Route::get('scores/{score}', [ScoreController::class, 'show']);
-    Route::delete('scores/{score}', [ScoreController::class, 'destroy']);
-    Route::get('scores/student/{studentId}/{termId}/{sessionId}', [ScoreController::class, 'getByStudent']);
-    Route::get('scores/class/{classId}/{subjectId}/{termId}/{sessionId}', [ScoreController::class, 'getByClassSubject']);
+    Route::post('scores/import', [ScoreController::class, 'importScores'])->name('scores.import');
+    Route::post('scores/bulk', [ScoreController::class, 'storeBulkScores']);
+    Route::get('scores/{score}', [ScoreController::class, 'show'])->whereNumber('score');
+    Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->whereNumber('score');
+    // Route::post('scores/recompute', [ScoreController::class, 'recomputeAll']);
 
     // Sessions - academic sessions management
     Route::apiResource('sessions', SessionController::class);
@@ -103,9 +108,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('current-term', [TermController::class, 'current']);
     Route::get('active-classes', [ClassController::class, 'active']);
     Route::get('subjects/class/{classId}', [SubjectController::class, 'getByClass']);
+    Route::post('class-subjects/assign', [ClassSubjectController::class, 'assign']);
 
     Route::post('students/import', [StudentController::class, 'import']);
     Route::get('students/export', [StudentController::class, 'export']);
     Route::get('attendance/analytics', [AttendanceController::class, 'analytics']);
 });
+
 

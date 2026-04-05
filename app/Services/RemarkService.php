@@ -3,73 +3,95 @@
 namespace App\Services;
 
 use App\Models\Remark;
-use App\Models\RemarkTemplate;
 use App\Models\StudentResult;
 
 class RemarkService
 {
-    public function generate($enrollmentId, $termId)
-    {
-        $result = StudentResult::where([
-            'enrollment_id' => $enrollmentId,
-            'term_id' => $termId
-        ])->first();
-
-        if (!$result) {
-            return null;
-        }
-
-        $avg = $result->average_score;
-        $position = $result->overall_position;
-
-        return [
-            'teacher' => $this->pickRemark('teacher', $avg, $position),
-            'head' => $this->pickRemark('head', $avg, $position),
-        ];
+    public function upsertManualRemark(
+        int $enrollmentId,
+        int $termId,
+        ?string $teacherRemark = null,
+        ?string $principalRemark = null
+    ): Remark {
+        return Remark::updateOrCreate(
+            [
+                'enrollment_id' => $enrollmentId,
+                'term_id' => $termId,
+            ],
+            [
+                'teacher_remark' => $this->normalizeNullableText($teacherRemark),
+                'principal_remark' => $this->normalizeNullableText($principalRemark),
+            ]
+        );
     }
 
-    protected function pickRemark($type, $avg, $position)
+    public function upsertAutoRemark(int $enrollmentId, int $termId): Remark
     {
-        $query = RemarkTemplate::where('type', $type)
-            ->where('min_avg', '<=', $avg)
-            ->where('max_avg', '>=', $avg);
+        $studentResult = StudentResult::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->where('term_id', $termId)
+            ->first();
 
-        // Apply position filter if exists
-        $query->where(function ($q) use ($position) {
-            $q->whereNull('min_position')
-              ->orWhere('min_position', '<=', $position);
-        });
-
-        $query->where(function ($q) use ($position) {
-            $q->whereNull('max_position')
-              ->orWhere('max_position', '>=', $position);
-        });
-
-        $remarks = $query->pluck('remark');
-
-        if ($remarks->isEmpty()) {
-            return "No remark available";
-        }
-
-        // 🔥 RANDOM SELECTION
-        return $remarks->random();
-    }
-
-    public function store($enrollmentId, $termId)
-    {
-        $generated = $this->generate($enrollmentId, $termId);
-
-        if (!$generated) return null;
+        $average = $studentResult?->average_score ?? 0;
 
         return Remark::updateOrCreate(
             [
                 'enrollment_id' => $enrollmentId,
-                'term_id' => $termId
+                'term_id' => $termId,
             ],
             [
-                'class_teacher_remark' => $generated['teacher'],
-                'head_teacher_remark' => $generated['head']
+                'teacher_remark' => $this->generateTeacherRemark((float) $average),
+                'principal_remark' => $this->generatePrincipalRemark((float) $average),
             ]
         );
+    }
+
+    public function getOrGenerateRemark(int $enrollmentId, int $termId): Remark
+    {
+        $existing = Remark::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->where('term_id', $termId)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return $this->upsertAutoRemark($enrollmentId, $termId);
+    }
+
+    public function generateTeacherRemark(float $average): string
+    {
+        return match (true) {
+            $average >= 80 => 'An excellent performance. Keep it up.',
+            $average >= 70 => 'Very good performance. Remain focused and consistent.',
+            $average >= 60 => 'Good performance. There is still room for improvement.',
+            $average >= 50 => 'Fair performance. More effort is needed next term.',
+            $average >= 40 => 'A weak performance. Must work much harder.',
+            default => 'A poor performance. Urgent improvement is required.',
+        };
+    }
+
+    public function generatePrincipalRemark(float $average): string
+    {
+        return match (true) {
+            $average >= 80 => 'Outstanding result. We are proud of your achievement.',
+            $average >= 70 => 'Commendable performance. Keep aiming higher.',
+            $average >= 60 => 'A satisfactory result. Greater effort will yield better outcomes.',
+            $average >= 50 => 'This result is fair, but you can do much better.',
+            $average >= 40 => 'This performance is below expectation. Improvement is necessary.',
+            default => 'This result is not acceptable. Serious academic improvement is required.',
+        };
+    }
+
+    private function normalizeNullableText(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }

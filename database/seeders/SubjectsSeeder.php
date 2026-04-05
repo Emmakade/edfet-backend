@@ -10,12 +10,24 @@ class SubjectsSeeder extends Seeder
     public function run(): void
     {
         $subjects = [
-            ['name'=>'Mathematics','code'=>'MATH'],
-            ['name'=>'English Language','code'=>'ENG'],
-            ['name'=>'Basic Science','code'=>'SCI'],
-            ['name'=>'Social Studies','code'=>'SOC'],
-            ['name'=>'Computer Studies','code'=>'CSC'],
-            ['name'=>'Physical Education','code'=>'PE']
+            ['name'=>'MATHEMATICS','code'=>'MATH'],
+            ['name'=>'ENGLISH LANGUAGE','code'=>'ENG'],
+            ['name'=>'SOCIAL STUDIES','code'=>'SOC'],
+            ['name'=>'CHRISTIAN RELIGIOUS STUDIES','code'=>'CRS'],
+            ['name'=>'CULTURAL AND CREATIVE ART','code'=>'CCA'],
+            ['name'=>'AGRICULTURAL SCIENCE ','code'=>'AGS'],
+            ['name'=>'COMPUTER STUDIES','code'=>'CSC'],
+            ['name'=>'HANDWRITING','code'=>'HWR'],
+            ['name'=>'LIT-IN-ENGLISH','code'=>'LIT'],
+            ['name'=>'SCIENCE AND TECHNOLOGY','code'=>'SCT'],
+            ['name'=>'VERBAL REASONING','code'=>'VRN'],
+            ['name'=>'QUANTITATIVE REASONING','code'=>'QRN'],
+            ['name'=>'PHYSICAL AND HEALTH EDUCATION','code'=>'PHE'],
+            ['name'=>'CIVIC EDUCATION','code'=>'CVE'],
+            ['name'=>'VOCATION APTITUDE','code'=>'VOA'],
+            ['name'=>'YORUBA LANGUAGE','code'=>'YOR'],
+            ['name'=>'HOME ECONOMIC','code'=>'HME'],
+            ['name'=>'HISTORY','code'=>'HIS'],
         ];
 
         foreach ($subjects as $s) {

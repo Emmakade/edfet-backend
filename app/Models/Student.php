@@ -2,42 +2,116 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'user_id','first_name','last_name','gender','admission_number',
-        'school_class_id','date_of_birth','photo_url','number_in_class'
+        'user_id',
+        'first_name',
+        'middle_name',
+        'surname',
+        'gender',
+        'date_of_birth',
+        'admission_number',
+        'phone_number',
+        'photo_url',
+        'number_in_class',
+        'school_class_id',
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date'
+        'user_id' => 'integer',
+        'school_class_id' => 'integer',
+        'number_in_class' => 'integer',
+        'date_of_birth' => 'date',
     ];
 
-    public function user(): BelongsTo
+    protected $appends = [
+        'full_name',
+    ];
+
+    public function getFullNameAttribute(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->surname,
+        ])));
+    }
+
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function schoolClass(): BelongsTo
+    public function schoolClass()
     {
         return $this->belongsTo(SchoolClass::class, 'school_class_id');
     }
 
-    public function enrollments(): HasMany
+    public function enrollments()
     {
         return $this->hasMany(Enrollment::class);
     }
 
-    public function scores(): HasMany
+    public function currentEnrollment()
     {
-        return $this->hasMany(Score::class);
+        return $this->hasOne(Enrollment::class)->latestOfMany();
     }
 
-    public function attendances(): HasMany
+    public function scores()
+    {
+        return $this->hasManyThrough(
+            Score::class,
+            Enrollment::class,
+            'student_id',
+            'enrollment_id',
+            'id',
+            'id'
+        );
+    }
+
+    public function subjectResults()
+    {
+        return $this->hasManyThrough(
+            SubjectResult::class,
+            Enrollment::class,
+            'student_id',
+            'enrollment_id',
+            'id',
+            'id'
+        );
+    }
+
+    public function studentResults()
+    {
+        return $this->hasManyThrough(
+            StudentResult::class,
+            Enrollment::class,
+            'student_id',
+            'enrollment_id',
+            'id',
+            'id'
+        );
+    }
+
+    public function remarks()
+    {
+        return $this->hasManyThrough(
+            Remark::class,
+            Enrollment::class,
+            'student_id',
+            'enrollment_id',
+            'id',
+            'id'
+        );
+    }
+
+    public function attendances()
     {
         return $this->hasMany(Attendance::class);
     }

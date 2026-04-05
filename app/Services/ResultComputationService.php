@@ -2,19 +2,105 @@
 
 namespace App\Services;
 
-use App\Models\Score;
+use App\Models\ClassSubject;
+use App\Models\Enrollment;
 use App\Models\GradeBoundary;
-use App\Models\ClassSummary;
+use App\Models\Score;
 use App\Models\StudentResult;
+use App\Models\SubjectResult;
 
 class ResultComputationService
 {
-    public function computeOverallResults($classId, $termId, $sessionId)
+    public function recomputeClassResults(int $classId, int $termId, int $sessionId): void
     {
-        $results = SubjectResult::where('term_id', $termId)
+        $enrollments = Enrollment::query()
+            ->where('school_class_id', $classId)
+            ->where('session_id', $sessionId)
+            ->get();
+
+        $subjectIds = ClassSubject::query()
+            ->where('school_class_id', $classId)
+            ->where('session_id', $sessionId)
+            ->pluck('subject_id');
+
+        foreach ($enrollments as $enrollment) {
+            foreach ($subjectIds as $subjectId) {
+                $this->computeSubjectResult(
+                    $enrollment->id,
+                    (int) $subjectId,
+                    $termId,
+                    $sessionId
+                );
+            }
+        }
+
+        $this->computeClassSubjectStats($classId, $termId, $sessionId);
+        $this->computeOverallResults($classId, $termId, $sessionId);
+    }
+
+    public function computeSubjectResult(
+        int $enrollmentId,
+        int $subjectId,
+        int $termId,
+        ?int $sessionId = null
+    ): ?SubjectResult {
+        $enrollment = Enrollment::query()->find($enrollmentId);
+
+        if (! $enrollment) {
+            return null;
+        }
+
+        $resolvedSessionId = $sessionId ?? (int) $enrollment->session_id;
+
+        $subjectBelongsToClass = ClassSubject::query()
+            ->where('school_class_id', $enrollment->school_class_id)
+            ->where('session_id', $resolvedSessionId)
+            ->where('subject_id', $subjectId)
+            ->exists();
+
+        if (! $subjectBelongsToClass) {
+            SubjectResult::query()
+                ->where('enrollment_id', $enrollmentId)
+                ->where('subject_id', $subjectId)
+                ->where('term_id', $termId)
+                ->delete();
+
+            return null;
+        }
+
+        $scores = Score::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->where('subject_id', $subjectId)
+            ->where('term_id', $termId)
+            ->where('session_id', $resolvedSessionId)
+            ->where('school_class_id', $enrollment->school_class_id)
+            ->get();
+
+        $total = (int) $scores->sum('score');
+
+        $boundary = GradeBoundary::findByScore((int) round($total));
+
+        return SubjectResult::updateOrCreate(
+            [
+                'enrollment_id' => $enrollmentId,
+                'subject_id' => $subjectId,
+                'term_id' => $termId,
+            ],
+            [
+                'total' => $total,
+                'grade' => $boundary?->grade,
+                'remark' => $boundary?->remark,
+            ]
+        );
+    }
+
+    public function computeOverallResults(int $classId, int $termId, int $sessionId): void
+    {
+        $results = SubjectResult::query()
+            ->where('term_id', $termId)
             ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
                 $q->where('school_class_id', $classId)
-                ->where('session_id', $sessionId);
+                    ->where('session_id', $sessionId);
             })
             ->get()
             ->groupBy('enrollment_id');
@@ -22,26 +108,26 @@ class ResultComputationService
         $final = [];
 
         foreach ($results as $enrollmentId => $subjects) {
-
-            $total = $subjects->sum('total');
-            $avg = round($subjects->avg('total'), 2);
+            $total = (int) $subjects->sum('total');
+            $average = $subjects->count() > 0
+                ? round($subjects->avg('total'), 2)
+                : 0;
 
             $final[] = [
-                'enrollment_id' => $enrollmentId,
+                'enrollment_id' => (int) $enrollmentId,
                 'total' => $total,
-                'average' => $avg
+                'average' => $average,
             ];
         }
 
-        usort($final, fn($a, $b) => $b['total'] <=> $a['total']);
+        usort($final, fn ($a, $b) => $b['total'] <=> $a['total']);
 
         $position = 1;
-        $prev = null;
+        $prevTotal = null;
         $skip = 0;
 
         foreach ($final as $index => $res) {
-
-            if ($prev !== null && $res['total'] == $prev) {
+            if ($prevTotal !== null && $res['total'] === $prevTotal) {
                 $skip++;
             } else {
                 $position = $index + 1 - $skip;
@@ -59,54 +145,27 @@ class ResultComputationService
                 ]
             );
 
-            $prev = $res['total'];
+            $prevTotal = $res['total'];
         }
     }
 
-    public function computeSubjectResult($enrollmentId, $subjectId, $termId)
+    public function computeClassSubjectStats(int $classId, int $termId, int $sessionId): void
     {
-        $scores = Score::with('assessment')
-            ->where('enrollment_id', $enrollmentId)
-            ->where('subject_id', $subjectId)
-            ->get();
-
-        if ($scores->isEmpty()) return;
-
-        $total = $scores->sum('score');
-
-        $boundary = GradeBoundary::findByScore((int) round($total));
-
-        SubjectResult::updateOrCreate(
-            [
-                'enrollment_id' => $enrollmentId,
-                'subject_id' => $subjectId,
-                'term_id' => $termId,
-            ],
-            [
-                'total' => $total,
-                'grade' => $boundary?->grade,
-                'remark' => $boundary?->remark,
-            ]
-        );
-    }
-
-    public function computeClassSubjectStats($classId, $termId, $sessionId)
-    {
-        $results = SubjectResult::where('term_id', $termId)
+        $results = SubjectResult::query()
+            ->where('term_id', $termId)
             ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
                 $q->where('school_class_id', $classId)
-                ->where('session_id', $sessionId);
+                    ->where('session_id', $sessionId);
             })
             ->get()
             ->groupBy('subject_id');
 
         foreach ($results as $subjectId => $group) {
-
             $totals = $group->pluck('total');
 
             $avg = round($totals->avg(), 2);
-            $high = $totals->max();
-            $low = $totals->min();
+            $high = (int) $totals->max();
+            $low = (int) $totals->min();
 
             $ranked = $group->sortByDesc('total')->values();
 
@@ -115,8 +174,7 @@ class ResultComputationService
             $skip = 0;
 
             foreach ($ranked as $index => $res) {
-
-                if ($prev !== null && $res->total == $prev) {
+                if ($prev !== null && (int) $res->total === (int) $prev) {
                     $skip++;
                 } else {
                     $position = $index + 1 - $skip;
@@ -129,7 +187,7 @@ class ResultComputationService
                     'class_lowest' => $low,
                 ]);
 
-                $prev = $res->total;
+                $prev = (int) $res->total;
             }
         }
     }

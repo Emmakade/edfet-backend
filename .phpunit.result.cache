@@ -1,0 +1,1 @@
+{"version":2,"defects":[],"times":{"Tests\\Feature\\ScoresImportTest::test_it_persists_valid_rows_and_keeps_invalid_rows_in_failed_summary":0.825,"Tests\\Feature\\ScoresImportTest::test_recompute_touched_results_only_uses_scores_from_the_current_term":0.847}}

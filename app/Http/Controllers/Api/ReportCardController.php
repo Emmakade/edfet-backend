@@ -3,154 +3,185 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Student;
-use App\Models\Score;
-use App\Models\School;
-use App\Models\SessionModel;
-use App\Models\Term;
-use App\Models\StudentResult;
-use App\Models\SubjectResult;
-use App\Models\SchoolClass;
 use App\Models\Enrollment;
+use App\Services\RemarkService;
+use App\Services\ResultBuilderService;
+use App\Services\ResultComputationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use App\Services\ResultBuilderService;
-use App\Services\RemarkService;
 
 class ReportCardController extends Controller
 {
+    protected ResultBuilderService $resultBuilderService;
+    protected ResultComputationService $resultComputationService;
+    protected RemarkService $remarkService;
+
     public function __construct(
-        ResultBuilderService $builder,
+        ResultBuilderService $resultBuilderService,
+        ResultComputationService $resultComputationService,
         RemarkService $remarkService
     ) {
-        $this->builder = $builder;
+        $this->resultBuilderService = $resultBuilderService;
+        $this->resultComputationService = $resultComputationService;
         $this->remarkService = $remarkService;
     }
 
-    public function generate(Request $request, $studentId)
+    public function show(Request $request)
     {
-        $data = $request->validate([
-            'school_class_id' => 'required|exists:school_classes,id',
-            'term_id' => 'required|exists:terms,id',
-            'session_id' => 'required|exists:sessions,id',
+        $validated = $request->validate([
+            'enrollment_id' => ['required', 'exists:enrollments,id'],
+            'term_id' => ['required', 'exists:terms,id'],
         ]);
 
-        $school = School::first();
-        $term = Term::findOrFail($data['term_id']);
-        $session = SessionModel::findOrFail($data['session_id']);
+        $enrollment = Enrollment::query()
+            ->with(['student', 'schoolClass'])
+            ->findOrFail((int) $validated['enrollment_id']);
 
-        if ($term->session_id !== $session->id) {
-            return response()->json(['message' => 'Invalid term/session'], 422);
-        }
+        $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
 
-        // ✅ Resolve enrollment
-        $enrollment = Enrollment::where([
-            'student_id' => $studentId,
-            'school_class_id' => $data['school_class_id'],
-            'session_id' => $data['session_id'],
-        ])->firstOrFail();
-
-        // ✅ Build report data
-        $report = $this->builder->buildStudentReport(
-            $enrollment->id,
-            $data['term_id']
+        $report = $this->resultBuilderService->buildStudentReport(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
         );
 
-        // ✅ Remarks
-        $remark = $this->remarkService->store(
-            $enrollment->id,
-            $data['term_id']
+        $remark = $this->remarkService->getOrGenerateRemark(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
         );
 
-        $pdf = Pdf::loadView('pdf.report_card', [
-            'school' => $school,
-            'student' => $report['student'],
-            'subjects' => $report['subjects'], // 🔥 key change
-            'result' => $report['result'],
-            'class' => $report['enrollment']->schoolClass,
-            'term' => $term->name,
-            'session' => $session->name,
-            'attendance' => [
-                'opened' => 75,
-                'present' => 70,
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Report card loaded successfully',
+            'data' => [
+                'student' => $report['student'],
+                'enrollment' => $report['enrollment'],
+                'subjects' => $report['subjects'],
+                'result' => $report['result'],
+                'remark' => $remark,
             ],
-            'teacher_remark' => $remark->class_teacher_remark ?? '',
-            'head_remark' => $remark->head_teacher_remark ?? '',
-            'logo' => public_path('images/logo.png'),
-            'next_term' => \Carbon\Carbon::parse($school->next_term_begins)->format('jS F Y'),
         ]);
-
-        return $pdf->download("report-card-{$studentId}.pdf");
     }
 
-    public function generateClass($classId, $termId, $sessionId)
+    public function downloadPdf(Request $request)
     {
-        $school = School::first();
-        $term = Term::findOrFail($termId);
-        $session = SessionModel::findOrFail($sessionId);
+        $validated = $request->validate([
+            'enrollment_id' => ['required', 'exists:enrollments,id'],
+            'term_id' => ['required', 'exists:terms,id'],
+        ]);
 
-        if ($term->session_id !== $session->id) {
-            return response()->json(['message' => 'Invalid term/session'], 422);
-        }
+        $enrollment = Enrollment::query()
+            ->with(['student', 'schoolClass'])
+            ->findOrFail((int) $validated['enrollment_id']);
 
-        $enrollments = Enrollment::with(['student.user', 'schoolClass'])
-            ->where('school_class_id', $classId)
-            ->where('session_id', $sessionId)
-            ->get();
+        $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
 
-        if ($enrollments->isEmpty()) {
-            abort(404, 'No students found.');
-        }
+        $report = $this->resultBuilderService->buildStudentReport(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
+        );
 
-        // 🔥 PRELOAD ALL RESULTS (PERFORMANCE BOOST)
-        $subjectResults = SubjectResult::with('subject')
-            ->whereIn('enrollment_id', $enrollments->pluck('id'))
-            ->where('term_id', $termId)
-            ->get()
-            ->groupBy('enrollment_id');
+        $remark = $this->remarkService->getOrGenerateRemark(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
+        );
 
-        $overallResults = StudentResult::whereIn('enrollment_id', $enrollments->pluck('id'))
-            ->where('term_id', $termId)
-            ->get()
-            ->keyBy('enrollment_id');
+        $pdf = Pdf::loadView('report_cards.student', [
+            'student' => $report['student'],
+            'enrollment' => $report['enrollment'],
+            'subjects' => $report['subjects'],
+            'result' => $report['result'],
+            'remark' => $remark,
+        ])->setPaper('a4', 'portrait');
 
-        $html = $enrollments->map(function ($enrollment) use (
-            $school,
-            $subjectResults,
-            $overallResults,
-            $term,
-            $session,
-            $termId
-        ) {
+        $studentName = $this->safeFileName(
+            $report['student']->full_name ?? trim(
+                ($report['student']->first_name ?? '') . ' ' .
+                ($report['student']->middle_name ?? '') . ' ' .
+                ($report['student']->surname ?? '')
+            )
+        );
 
-            $remark = $this->remarkService->store(
-                $enrollment->id,
-                $termId
+        $fileName = 'report_card_' . $studentName . '_term_' . (int) $validated['term_id'] . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    public function previewPdf(Request $request)
+    {
+        $validated = $request->validate([
+            'enrollment_id' => ['required', 'exists:enrollments,id'],
+            'term_id' => ['required', 'exists:terms,id'],
+        ]);
+
+        $enrollment = Enrollment::query()
+            ->with(['student', 'schoolClass'])
+            ->findOrFail((int) $validated['enrollment_id']);
+
+        $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
+
+        $report = $this->resultBuilderService->buildStudentReport(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
+        );
+
+        $remark = $this->remarkService->getOrGenerateRemark(
+            (int) $validated['enrollment_id'],
+            (int) $validated['term_id']
+        );
+
+        $pdf = Pdf::loadView('report_cards.student', [
+            'student' => $report['student'],
+            'enrollment' => $report['enrollment'],
+            'subjects' => $report['subjects'],
+            'result' => $report['result'],
+            'remark' => $remark,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('report_card_preview.pdf');
+    }
+
+    private function recomputeEnrollmentResults(Enrollment $enrollment, int $termId): void
+    {
+        $subjectIds = $enrollment->schoolClass
+            ? $enrollment->schoolClass
+                ->classSubjects()
+                ->where('session_id', $enrollment->session_id)
+                ->pluck('subject_id')
+            : collect();
+
+        foreach ($subjectIds as $subjectId) {
+            $this->resultComputationService->computeSubjectResult(
+                (int) $enrollment->id,
+                (int) $subjectId,
+                $termId,
+                (int) $enrollment->session_id
             );
+        }
 
-            return view('pdf.report_card', [
-                'school' => $school,
-                'student' => $enrollment->student,
-                'subjects' => $subjectResults->get($enrollment->id, collect()),
-                'result' => $overallResults->get($enrollment->id),
-                'class' => $enrollment->schoolClass,
-                'term' => $term->name,
-                'session' => $session->name,
-                'attendance' => [
-                    'opened' => 75,
-                    'present' => 70,
-                ],
-                'teacher_remark' => $remark->class_teacher_remark ?? '',
-                'head_remark' => $remark->head_teacher_remark ?? '',
-                'logo' => public_path('images/logo.png'),
-                'next_term' => \Carbon\Carbon::parse($school->next_term_begins)->format('jS F Y'),
-            ])->render();
+        $this->resultComputationService->computeClassSubjectStats(
+            (int) $enrollment->school_class_id,
+            $termId,
+            (int) $enrollment->session_id
+        );
 
-        })->implode('<div style="page-break-after: always;"></div>');
+        $this->resultComputationService->computeOverallResults(
+            (int) $enrollment->school_class_id,
+            $termId,
+            (int) $enrollment->session_id
+        );
+    }
 
-        return Pdf::loadHTML($html)
-            ->download("report_cards_class_{$classId}.pdf");
+    private function safeFileName(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return 'student';
+        }
+
+        $value = preg_replace('/[^A-Za-z0-9\-_]+/', '_', $value);
+        $value = preg_replace('/_+/', '_', $value);
+
+        return trim($value, '_') ?: 'student';
     }
 }
-
-

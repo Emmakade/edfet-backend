@@ -5,28 +5,32 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Score extends Model
+class SubjectResult extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'enrollment_id',
         'subject_id',
-        'assessment_id',
         'term_id',
-        'session_id',
-        'school_class_id',
-        'score',
+        'total',
+        'grade',
+        'remark',
+        'subject_position',
+        'class_average',
+        'class_highest',
+        'class_lowest',
     ];
 
     protected $casts = [
         'enrollment_id' => 'integer',
         'subject_id' => 'integer',
-        'assessment_id' => 'integer',
         'term_id' => 'integer',
-        'session_id' => 'integer',
-        'school_class_id' => 'integer',
-        'score' => 'integer',
+        'total' => 'integer',
+        'subject_position' => 'integer',
+        'class_average' => 'float',
+        'class_highest' => 'integer',
+        'class_lowest' => 'integer',
     ];
 
     public function enrollment()
@@ -51,23 +55,8 @@ class Score extends Model
         return $this->belongsTo(Subject::class);
     }
 
-    public function assessment()
-    {
-        return $this->belongsTo(Assessment::class);
-    }
-
     public function term()
     {
         return $this->belongsTo(Term::class);
-    }
-
-    public function session()
-    {
-        return $this->belongsTo(SessionModel::class, 'session_id');
-    }
-
-    public function schoolClass()
-    {
-        return $this->belongsTo(SchoolClass::class, 'school_class_id');
     }
 }
