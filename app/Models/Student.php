@@ -18,6 +18,7 @@ class Student extends Model
         'date_of_birth',
         'admission_number',
         'phone_number',
+        'login_email',
         'photo_url',
         'number_in_class',
         'school_class_id',

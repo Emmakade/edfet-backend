@@ -10,7 +10,8 @@ class CreateStudentsTable extends Migration
     {
         Schema::create('students', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // optional link to user (parent/student)
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('login_email')->nullable()->unique();
             $table->string('surname');
             $table->string('first_name');
             $table->string('middle_name')->nullable();

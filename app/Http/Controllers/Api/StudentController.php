@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\StudentAccountLinkService;
 use App\Exports\StudentsWithEnrollmentsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Student\StudentStoreRequest;
@@ -61,6 +62,7 @@ class StudentController extends Controller
                 'photo_url' => $data['photo_url'] ?? null,
                 'number_in_class' => $data['number_in_class'] ?? null,
                 'school_class_id' => $data['school_class_id'] ?? null,
+                'login_email' => $data['login_email'] ?? null,
                 'admission_number' => null,
             ]);
 
@@ -68,12 +70,13 @@ class StudentController extends Controller
                 'admission_number' => $this->generateAdmissionNumber($student->id),
             ]);
 
-            if (!empty($data['school_class_id']) && !empty($data['session_id'])) {
-                Enrollment::firstOrCreate([
-                    'student_id' => $student->id,
-                    'school_class_id' => $data['school_class_id'],
-                    'session_id' => $data['session_id'],
-                ]);
+            if (!empty($data['create_login_account']) && !empty($data['login_email'])) {
+                app(StudentAccountLinkService::class)->linkOrCreateForStudent(
+                    $student->fresh(),
+                    $data['login_email'],
+                    true,
+                    $data['login_password'] ?? null
+                );
             }
 
             return $student->fresh(['schoolClass', 'enrollments.schoolClass']);
@@ -117,6 +120,7 @@ class StudentController extends Controller
                 'photo_url' => array_key_exists('photo_url', $data) ? $data['photo_url'] : $student->photo_url,
                 'number_in_class' => array_key_exists('number_in_class', $data) ? $data['number_in_class'] : $student->number_in_class,
                 'school_class_id' => array_key_exists('school_class_id', $data) ? $data['school_class_id'] : $student->school_class_id,
+                'login_email' => array_key_exists('login_email', $data) ? $data['login_email'] : $student->login_email,
             ]);
 
             if (!empty($data['school_class_id']) && !empty($data['session_id'])) {
@@ -125,6 +129,17 @@ class StudentController extends Controller
                     'school_class_id' => $data['school_class_id'],
                     'session_id' => $data['session_id'],
                 ]);
+            }
+
+            if (!empty($data['create_login_account']) && !empty($student->login_email)) {
+                app(StudentAccountLinkService::class)->linkOrCreateForStudent(
+                    $student->fresh(),
+                    $student->login_email,
+                    true,
+                    $data['login_password'] ?? null
+                );
+            } elseif ($student->user) {
+                app(StudentAccountLinkService::class)->syncLinkedStudentUser($student->fresh('user'));
             }
 
             return $student->fresh(['schoolClass', 'enrollments.schoolClass']);
@@ -419,6 +434,10 @@ class StudentController extends Controller
         if (array_key_exists('date_of_birth', $normalized)) {
             $normalized['date_of_birth'] = $this->parseDateInput($normalized['date_of_birth']);
         }
+        
+        if (array_key_exists('login_email', $normalized)) {
+            $normalized['login_email'] = $this->nullableEmail($normalized['login_email']);
+        }
 
         return $normalized;
     }
@@ -459,6 +478,17 @@ class StudentController extends Controller
         }
 
         $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function nullableEmail($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim(strtolower((string) $value));
 
         return $value === '' ? null : $value;
     }

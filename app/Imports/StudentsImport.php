@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Services\StudentAccountLinkService;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -56,6 +57,10 @@ class StudentsImport implements ToModel, WithHeadingRow
                     $this->getValue($row, ['number_in_class', 'number in class', 'roll_no', 'roll number'])
                 );
 
+                $loginEmail = $this->normalizeEmail(
+                    $this->getValue($row, ['login_email', 'login email', 'email'])
+                );
+
                 if (! $firstName) {
                     throw new \Exception('First name is required');
                 }
@@ -84,6 +89,7 @@ class StudentsImport implements ToModel, WithHeadingRow
                         'gender' => $gender,
                         'date_of_birth' => $dateOfBirth,
                         'phone_number' => $phoneNumber,
+                        'login_email' => $loginEmail,
                         'number_in_class' => $numberInClass,
                     ]);
 
@@ -98,6 +104,7 @@ class StudentsImport implements ToModel, WithHeadingRow
                         'gender' => $student->gender ?: $gender,
                         'date_of_birth' => $student->date_of_birth ?: $dateOfBirth,
                         'phone_number' => $phoneNumber ?: $student->phone_number,
+                        'login_email' => $loginEmail ?: $student->login_email,
                         'number_in_class' => $numberInClass ?: $student->number_in_class,
                     ]);
                 }
@@ -113,6 +120,15 @@ class StudentsImport implements ToModel, WithHeadingRow
                     ]
                 );
 
+                $linkedUser = null;
+                if ($student->login_email) {
+                    $linkedUser = app(StudentAccountLinkService::class)->linkOrCreateForStudent(
+                        $student->fresh(),
+                        $student->login_email,
+                        true
+                    );
+                }
+
                 $this->successRows[] = [
                     'row' => $excelRowNumber,
                     'student_id' => $student->id,
@@ -120,6 +136,8 @@ class StudentsImport implements ToModel, WithHeadingRow
                     'name' => trim($student->first_name . ' ' . ($student->middle_name ?? '') . ' ' . $student->surname),
                     'student_status' => $wasCreated ? 'created' : 'reused_existing_student',
                     'enrollment_status' => $enrollment->wasRecentlyCreated ? 'enrolled' : 'already_enrolled',
+                    'login_email' => $student->login_email,
+                    'user_linked' => (bool) $linkedUser,
                 ];
 
                 return $student;
@@ -178,6 +196,13 @@ class StudentsImport implements ToModel, WithHeadingRow
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function normalizeEmail($value): ?string
+    {
+        $value = $this->normalizeString($value);
+
+        return $value ? strtolower($value) : null;
     }
 
     private function normalizeInteger($value): ?int

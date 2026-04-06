@@ -18,6 +18,28 @@ class CreateScoresTable extends Migration
             $table->foreignId('session_id')->constrained()->cascadeOnDelete();
             $table->integer('score');
             $table->timestamps();
+
+            $table->unique(
+                [
+                    'enrollment_id',
+                    'subject_id',
+                    'assessment_id',
+                    'term_id',
+                    'session_id',
+                    'school_class_id',
+                ],
+                'scores_unique_entry'
+            );
+
+            $table->index(
+                ['school_class_id', 'session_id', 'term_id'],
+                'scores_class_session_term_idx'
+            );
+
+            $table->index(
+                ['enrollment_id', 'term_id', 'session_id'],
+                'scores_enrollment_term_session_idx'
+            );
         });
     }
 

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\ClassSummaryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\ClassSubjectController;
+use App\Http\Controllers\Api\StudentAccountController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,7 @@ Route::post('login', [AuthController::class, 'login']);
 Route::middleware(['auth:sanctum'])->group(function () {
 
     // Auth
+    Route::get('profile', [AuthController::class, 'profile']);
     Route::post('logout', [AuthController::class, 'logout']);
 
     // School config - only super-admin (enforced by FormRequest)
@@ -57,6 +59,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('students/import-student', [StudentController::class, 'importStudent']);
     Route::post('students/import', [StudentController::class, 'import']);
     Route::get('students/{studentId}/subjects/{sessionId}', [ClassSubjectController::class, 'getStudentSubjects']);
+
+    Route::get('student-accounts', [StudentAccountController::class, 'index']);
+    Route::post('student-accounts/create-missing', [StudentAccountController::class, 'createMissingAccounts']);
+    Route::post('student-accounts/{student}/reset-password', [StudentAccountController::class, 'resetPassword']);
+    Route::get('student-accounts/export-credentials', [StudentAccountController::class, 'exportCredentials']);
     
 
     // Attendance
@@ -95,8 +102,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('class-summaries', [ClassSummaryController::class, 'index']);
 
     // Report Generation
-    Route::get('report-card/{studentId}', [ReportCardController::class, 'generate']);
-    Route::get('report-card/class/{classId}/{termId}/{sessionId}', [ReportCardController::class, 'generateClass']);
+    Route::get('report-card', [ReportCardController::class, 'show']);
+    Route::get('report-card/preview-pdf', [ReportCardController::class, 'previewPdf']);
+    Route::get('report-card/download-pdf', [ReportCardController::class, 'downloadPdf']);
+
+    Route::get('me/student-context', [ReportCardController::class, 'myContext']);
+    Route::get('me/report-card', [ReportCardController::class, 'myReport']);
+    Route::get('me/report-card/preview-pdf', [ReportCardController::class, 'myPreviewPdf']);
+    Route::get('me/report-card/download-pdf', [ReportCardController::class, 'myDownloadPdf']);
 
     // Dashboard & Analytics
     Route::get('dashboard/school-stats', [DashboardController::class, 'schoolStats']);
