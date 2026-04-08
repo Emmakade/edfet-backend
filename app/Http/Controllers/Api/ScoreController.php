@@ -4,21 +4,28 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Imports\ScoresImport;
+use App\Models\Assessment;
 use App\Models\ClassSubject;
 use App\Models\Enrollment;
 use App\Models\Score;
 use App\Services\ResultComputationService;
+use App\Services\TeacherAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ScoreController extends Controller
 {
     protected ResultComputationService $resultComputationService;
+    protected TeacherAccessService $teacherAccessService;
 
-    public function __construct(ResultComputationService $resultComputationService)
-    {
+    public function __construct(
+        ResultComputationService $resultComputationService,
+        TeacherAccessService $teacherAccessService
+    ) {
         $this->resultComputationService = $resultComputationService;
+        $this->teacherAccessService = $teacherAccessService;
     }
 
     public function storeBulkScores(Request $request)
@@ -36,7 +43,7 @@ class ScoreController extends Controller
             'school_class_id' => ['required', 'exists:school_classes,id'],
         ]);
 
-        return DB::transaction(function () use ($payload) {
+        return DB::transaction(function () use ($payload, $request) {
             $saved = [];
             $failed = [];
             $touchedPairs = [];
@@ -63,6 +70,26 @@ class ScoreController extends Controller
                         throw new \Exception('Subject is not assigned to the selected class/session');
                     }
 
+                    if (! $this->teacherAccessService->canEnterScores(
+                        $request->user(),
+                        (int) $payload['school_class_id'],
+                        (int) $item['subject_id'],
+                        (int) $payload['session_id']
+                    )) {
+                        throw ValidationException::withMessages([
+                            'scores' => ['You are not allowed to enter scores for one or more selected subjects/classes.'],
+                        ]);
+                    }
+
+                    $assessment = Assessment::query()->findOrFail($item['assessment_id']);
+                    $roundedScore = (int) round($item['score']);
+
+                    if ($roundedScore > (int) $assessment->max_score) {
+                        throw ValidationException::withMessages([
+                            'scores' => ["Score cannot be greater than the assessment max score of {$assessment->max_score}."],
+                        ]);
+                    }
+
                     $score = Score::updateOrCreate(
                         [
                             'enrollment_id' => $item['enrollment_id'],
@@ -73,7 +100,7 @@ class ScoreController extends Controller
                             'school_class_id' => $payload['school_class_id'],
                         ],
                         [
-                            'score' => (int) round($item['score']),
+                            'score' => $roundedScore,
                         ]
                     );
 
@@ -126,14 +153,49 @@ class ScoreController extends Controller
 
     public function show(Score $score)
     {
+        if (! $this->teacherAccessService->canViewScore($score, request()->user())) {
+            abort(403, 'You are not allowed to view this score.');
+        }
+
         return response()->json(
             $score->load('enrollment.student', 'subject', 'assessment', 'term')
         );
     }
 
+    //method to update bulk scores for a teacher's assigned class and subjects strimline for a class, term an session
+    public function update(Request $request, Score $score)
+    {
+        $this->authorize('enter-scores');
+        if (! $this->teacherAccessService->canEnterScores(
+            request()->user(),
+            (int) $score->school_class_id,
+            (int) $score->subject_id,
+            (int) $score->session_id
+        )) {
+            abort(403, 'You are not allowed to update this score.');
+        }
+        $validated = $request->validate([
+            'score' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $score->update($validated);
+
+        return response()->json(['message' => 'Score updated successfully']);
+    }
+
+    
     public function destroy(Score $score)
     {
         $this->authorize('enter-scores');
+
+        if (! $this->teacherAccessService->canEnterScores(
+            request()->user(),
+            (int) $score->school_class_id,
+            (int) $score->subject_id,
+            (int) $score->session_id
+        )) {
+            abort(403, 'You are not allowed to delete this score.');
+        }
 
         $classId = (int) $score->school_class_id;
         $termId = (int) $score->term_id;
@@ -191,6 +253,21 @@ class ScoreController extends Controller
             $validated['session_id'],
             $validated['school_class_id']
         );
+
+        if (! $request->user()->hasRole('super-admin')) {
+            $assignedSubjectIds = ClassSubject::query()
+                ->where('school_class_id', $validated['school_class_id'])
+                ->where('session_id', $validated['session_id'])
+                ->where('teacher_id', $request->user()->id)
+                ->pluck('subject_id');
+
+            if ($assignedSubjectIds->isEmpty() && ! $this->teacherAccessService->isClassTeacherForClass(
+                $request->user(),
+                (int) $validated['school_class_id']
+            )) {
+                abort(403, 'You are not allowed to import scores for this class.');
+            }
+        }
 
         $uploadedFile = $request->file('file');
         $fileName = $uploadedFile->getClientOriginalName();

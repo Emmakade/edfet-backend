@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             \Database\Seeders\RemarkTemplateSeeder::class,
             \Database\Seeders\AssessmentSeeder::class,
             \Database\Seeders\SessionSeeder::class,
+            \Database\Seeders\TermSeeder::class,
         ]);
     }
 }

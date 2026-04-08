@@ -14,6 +14,10 @@ class CreateClassesTable extends Migration
             $table->string('level')->nullable(); // optional semantic level
             $table->string('section')->nullable(); // "A", "B"
             $table->foreignId('school_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('class_teacher_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             $table->timestamps();
         });
     }

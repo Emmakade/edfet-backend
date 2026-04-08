@@ -19,8 +19,8 @@ class RemarkService
                 'term_id' => $termId,
             ],
             [
-                'teacher_remark' => $this->normalizeNullableText($teacherRemark),
-                'principal_remark' => $this->normalizeNullableText($principalRemark),
+                'class_teacher_remark' => $this->normalizeNullableText($teacherRemark),
+                'head_teacher_remark' => $this->normalizeNullableText($principalRemark),
             ]
         );
     }
@@ -40,8 +40,8 @@ class RemarkService
                 'term_id' => $termId,
             ],
             [
-                'teacher_remark' => $this->generateTeacherRemark((float) $average),
-                'principal_remark' => $this->generatePrincipalRemark((float) $average),
+                'class_teacher_remark' => $this->generateTeacherRemark((float) $average),
+                'head_teacher_remark' => $this->generatePrincipalRemark((float) $average),
             ]
         );
     }

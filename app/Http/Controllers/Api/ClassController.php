@@ -5,13 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\School\ClassStoreRequest;
 use App\Models\SchoolClass;
-use Illuminate\Http\Request;
 
 class ClassController extends Controller
 {
     public function index()
     {
-        $classes = SchoolClass::with('subjects','students')->get();
+        $classes = SchoolClass::with([
+            'classTeacher',
+            'classSubjects.subject',
+            'classSubjects.teacher',
+            'students',
+        ])->get();
+
         return response()->json($classes);
     }
 
@@ -24,7 +29,13 @@ class ClassController extends Controller
 
     public function show(SchoolClass $school_class)
     {
-        $school_class->load('subjects','students');
+        $school_class->load([
+            'classTeacher',
+            'classSubjects.subject',
+            'classSubjects.teacher',
+            'students',
+        ]);
+
         return response()->json($school_class);
     }
 
@@ -37,6 +48,11 @@ class ClassController extends Controller
     public function destroy(SchoolClass $school_class)
     {
         $school_class->delete();
-        return response()->json(['message'=>'Deleted']);
+        return response()->json(['message' => 'Deleted']);
+    }
+
+    public function active()
+    {
+        return $this->index();
     }
 }

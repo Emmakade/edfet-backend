@@ -12,8 +12,10 @@ class Remark extends Model
     protected $fillable = [
         'enrollment_id',
         'term_id',
-        'teacher_remark',
-        'principal_remark',
+        'class_teacher_remark',
+        'head_teacher_remark',
+        'class_teacher_signature',
+        'head_teacher_signature',
     ];
 
     protected $casts = [
@@ -41,5 +43,25 @@ class Remark extends Model
     public function term()
     {
         return $this->belongsTo(Term::class);
+    }
+
+    public function getTeacherRemarkAttribute(): ?string
+    {
+        return $this->attributes['class_teacher_remark'] ?? null;
+    }
+
+    public function setTeacherRemarkAttribute(?string $value): void
+    {
+        $this->attributes['class_teacher_remark'] = $value;
+    }
+
+    public function getPrincipalRemarkAttribute(): ?string
+    {
+        return $this->attributes['head_teacher_remark'] ?? null;
+    }
+
+    public function setPrincipalRemarkAttribute(?string $value): void
+    {
+        $this->attributes['head_teacher_remark'] = $value;
     }
 }

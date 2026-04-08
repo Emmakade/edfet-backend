@@ -19,6 +19,12 @@ class SchoolClass extends Model
         'level',
         'section',
         'school_id',
+        'class_teacher_id',
+    ];
+
+    protected $casts = [
+        'school_id' => 'integer',
+        'class_teacher_id' => 'integer',
     ];
 
     public function school(): BelongsTo
@@ -26,36 +32,26 @@ class SchoolClass extends Model
         return $this->belongsTo(School::class);
     }
 
-    /**
-     * Legacy/direct student link.
-     * Keep only for backward compatibility in old UI/code.
-     * Authoritative class membership should come from enrollments().
-     */
+    public function classTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'class_teacher_id');
+    }
+
     public function students(): HasMany
     {
         return $this->hasMany(Student::class, 'school_class_id');
     }
 
-    /**
-     * Authoritative class membership for the refactored system.
-     */
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class, 'school_class_id');
     }
 
-    /**
-     * Authoritative subject assignment for the refactored system.
-     */
     public function classSubjects(): HasMany
     {
         return $this->hasMany(ClassSubject::class, 'school_class_id');
     }
 
-    /**
-     * Subjects through class_subjects.
-     * This replaces the older subject_class pivot usage.
-     */
     public function assignedSubjects(): HasManyThrough
     {
         return $this->hasManyThrough(

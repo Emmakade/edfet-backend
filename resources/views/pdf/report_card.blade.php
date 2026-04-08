@@ -1,105 +1,520 @@
 @php
-if (!function_exists('ordinal')) {
+if (! function_exists('ordinal')) {
     function ordinal($number) {
-        $ends = ['th','st','nd','rd','th','th','th','th','th','th'];
-        if (($number % 100) >= 11 && ($number % 100) <= 13)
+        $ends = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+        if (($number % 100) >= 11 && ($number % 100) <= 13) {
             return $number . 'th';
+        }
+
         return $number . $ends[$number % 10];
     }
 }
+
+$studentName = trim($student->full_name ?? (($student->surname ?? '') . ' ' . ($student->first_name ?? '')));
+$termName = $term->name ?? ('Term ' . ($result->term_id ?? ''));
+$averageScore = (float) ($result->average_score ?? 0);
+$overallGrade = $result->grade ?? null;
+$overallPosition = $result && isset($result->overall_position) ? ordinal((int) $result->overall_position) : '-';
+$school = $enrollment->schoolClass->school ?? null;
+$schoolExtra = is_array($school?->extra ?? null) ? $school->extra : [];
+$schoolLogo = $schoolExtra['school_logo'] ?? $schoolExtra['logo'] ?? null;
+$schoolEmail = $schoolExtra['school_email'] ?? $schoolExtra['email'] ?? null;
+$schoolName = $school->name ?? config('app.name');
+$schoolAddress = $school->address ?? null;
+$schoolMailbox = $school->mailbox ?? null;
+$schoolPhone = $school->phone ?? null;
+$schoolMotto = $school->motto ?? null;
+
+$performancePalette = static function ($score) {
+    $score = (float) $score;
+
+    if ($score < 40) {
+        return ['bg' => '#fde8e8', 'text' => '#b42318', 'label' => 'Needs Improvement'];
+    }
+
+    if ($score < 60) {
+        return ['bg' => '#fff4e5', 'text' => '#b54708', 'label' => 'Fair'];
+    }
+
+    if ($score < 75) {
+        return ['bg' => '#ecfdf3', 'text' => '#027a48', 'label' => 'Good'];
+    }
+
+    return ['bg' => '#dcfae6', 'text' => '#05603a', 'label' => 'Excellence'];
+};
+
+$overallPalette = $performancePalette($averageScore);
 @endphp
 
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <style>
-        body { font-family: DejaVu Sans; font-size: 11px; }
-        table { width:100%; border-collapse: collapse; }
-        th, td { padding:6px; border-bottom:1px solid #eee; }
-        th { border-bottom:2px solid #000; font-size:10px; }
-        .text-center { text-align:center; }
-        .text-right { text-align:right; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: #1f2937;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 11px;
+            line-height: 1.45;
+            background: #ffffff;
+        }
+        .page {
+            padding: 24px 16px 18px;
+        }
+        .report-shell {
+            border: 1px solid #d0d5dd;
+            border-radius: 18px;
+            overflow: hidden;
+        }
+        .hero {
+            padding: 18px 22px 16px;
+            background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 48%, #166534 100%);
+            color: #ffffff;
+        }
+        .school-header {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+        }
+        .school-logo-cell {
+            width: 86px;
+            vertical-align: top;
+        }
+        .school-logo-wrap {
+            width: 68px;
+            height: 68px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+        .school-logo {
+            width: 62px;
+            height: 62px;
+            object-fit: contain;
+            margin-top: 3px;
+        }
+        .school-logo-fallback {
+            display: inline-block;
+            margin-top: 22px;
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+        }
+        .school-meta-cell {
+            vertical-align: top;
+        }
+        .school-name {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .school-line {
+            margin-top: 3px;
+            font-size: 10px;
+            opacity: 0.96;
+        }
+        .school-motto {
+            margin-top: 5px;
+            font-size: 10px;
+            font-style: italic;
+            opacity: 0.95;
+        }
+        .hero-table,
+        .info-grid,
+        .summary-grid,
+        .marks-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .hero-title {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .hero-subtitle {
+            margin-top: 4px;
+            font-size: 10px;
+            opacity: 0.92;
+        }
+        .hero-badge {
+            text-align: right;
+        }
+        .hero-badge .term-pill {
+            display: inline-block;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .content {
+            padding: 18px;
+            background: #fffdf8;
+        }
+        .section-title {
+            margin: 0 0 10px;
+            color: #7f1d1d;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .info-card,
+        .summary-card,
+        .remark-card {
+            width: 100%;
+            border: 1px solid #ead7d7;
+            border-radius: 14px;
+            background: #ffffff;
+        }
+        .info-card {
+            padding: 12px 14px;
+        }
+        .info-grid td {
+            width: 33.33%;
+            padding: 0 8px 10px 0;
+            vertical-align: top;
+        }
+        .info-label {
+            display: block;
+            margin-bottom: 2px;
+            color: #667085;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .info-value {
+            color: #b42318;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .spacer {
+            height: 14px;
+        }
+        .marks-wrap {
+            border: 1px solid #ead7d7;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+        .marks-table th {
+            padding: 10px 8px;
+            background: #7f1d1d;
+            color: #ffffff;
+            border-right: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .marks-table th:last-child {
+            border-right: none;
+        }
+        .marks-table td {
+            padding: 9px 8px;
+            border-top: 1px solid #f2e8e8;
+            color: #344054;
+        }
+        .marks-table tbody tr:nth-child(even) {
+            background: #fff7f7;
+        }
+        .subject-name {
+            font-weight: bold;
+            color: #101828;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .score-chip,
+        .grade-chip,
+        .status-chip {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+        .summary-grid td {
+            width: 25%;
+            padding: 12px 10px;
+            border-right: 1px solid #f0e0e0;
+            vertical-align: top;
+        }
+        .summary-grid td:last-child {
+            border-right: none;
+        }
+        .summary-label {
+            display: block;
+            margin-bottom: 6px;
+            color: #667085;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .summary-value {
+            color: #b42318;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .summary-note {
+            margin-top: 4px;
+            color: #475467;
+            font-size: 9px;
+        }
+        .remark-card {
+            padding: 14px;
+        }
+        .remark-block {
+            margin-bottom: 10px;
+            padding: 10px 12px;
+            border-left: 4px solid #b42318;
+            border-radius: 10px;
+            background: #fff7f7;
+        }
+        .remark-block:last-child {
+            margin-bottom: 0;
+        }
+        .remark-label {
+            display: block;
+            margin-bottom: 4px;
+            color: #667085;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .remark-value {
+            color: #101828;
+            font-size: 11px;
+        }
+        .footer-note {
+            margin-top: 12px;
+            color: #667085;
+            font-size: 9px;
+            text-align: center;
+        }
     </style>
 </head>
-
 <body>
+<div class="page">
+    <div class="report-shell">
+        <div class="hero">
+            <table class="school-header">
+                <tr>
+                    <td class="school-logo-cell">
+                        <div class="school-logo-wrap">
+                            @if($schoolLogo)
+                                <img src="{{ $schoolLogo }}" alt="School Logo" class="school-logo">
+                            @else
+                                <span class="school-logo-fallback">{{ strtoupper(substr($schoolName ?? 'S', 0, 1)) }}</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td class="school-meta-cell">
+                        <div class="school-name">{{ $schoolName }}</div>
+                        @if($schoolAddress)
+                            <div class="school-line">{{ $schoolAddress }}</div>
+                        @endif
+                        <div class="school-line">
+                            @if($schoolMailbox)
+                                P.O. Box: {{ $schoolMailbox }}
+                            @endif
+                            @if($schoolMailbox && ($schoolPhone || $schoolEmail))
+                                &nbsp; | &nbsp;
+                            @endif
+                            @if($schoolPhone)
+                                Phone: {{ $schoolPhone }}
+                            @endif
+                            @if($schoolPhone && $schoolEmail)
+                                &nbsp; | &nbsp;
+                            @endif
+                            @if($schoolEmail)
+                                Email: {{ $schoolEmail }}
+                            @endif
+                        </div>
+                        @if($schoolMotto)
+                            <div class="school-motto">{{ $schoolMotto }}</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+            <table class="hero-table">
+                <tr>
+                    <td>
+                        <div class="hero-title">Student Report Card</div>
+                        <div class="hero-subtitle">
+                            Academic performance summary for {{ $studentName ?: 'Student' }}
+                        </div>
+                    </td>
+                    <td class="hero-badge">
+                        <span class="term-pill">{{ $termName }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
 
-<h2 style="text-align:center;">STUDENT REPORT CARD</h2>
+        <div class="content">
+            <p class="section-title">Student Information</p>
+            <div class="info-card">
+                <table class="info-grid">
+                    <tr>
+                        <td>
+                            <span class="info-label">Student Name</span>
+                            <span class="info-value">{{ $studentName ?: 'N/A' }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Admission Number</span>
+                            <span class="info-value">{{ $student->admission_number ?: 'N/A' }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Gender</span>
+                            <span class="info-value">{{ ucfirst($student->gender ?: 'N/A') }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="info-label">Class</span>
+                            <span class="info-value">{{ $enrollment->schoolClass->name ?? 'N/A' }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Session</span>
+                            <span class="info-value">{{ $enrollment->session->name ?? 'N/A' }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Overall Status</span>
+                            <span class="status-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }};">
+                                {{ $overallPalette['label'] }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
 
-<!-- STUDENT INFO -->
-<table>
-    <tr>
-        <td><strong>Name:</strong> {{ $student->full_name }}</td>
-        <td><strong>Admission No:</strong> {{ $student->admission_number }}</td>
-        <td><strong>Gender:</strong> {{ $student->gender }}</td>
-    </tr>
-    <tr>
-        <td><strong>Class:</strong> {{ $enrollment->schoolClass->name }}</td>
-        <td><strong>Session:</strong> {{ $enrollment->session->name ?? '' }}</td>
-        <td><strong>Term:</strong> {{ $result->term_id ?? '' }}</td>
-    </tr>
-</table>
+            <div class="spacer"></div>
 
-<br>
+            <p class="section-title">Academic Performance</p>
+            <div class="marks-wrap">
+                <table class="marks-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 24%;">Subject</th>
+                            @if(isset($subjects[0]))
+                                @foreach($subjects[0]->assessments as $assessment)
+                                    <th class="text-center">{{ $assessment->name }}</th>
+                                @endforeach
+                            @endif
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Grade</th>
+                            <th class="text-center">Position</th>
+                            <th class="text-center">Average</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($subjects as $subject)
+                            @php
+                                $subjectPalette = $performancePalette($subject->total ?? 0);
+                            @endphp
+                            <tr>
+                                <td class="subject-name">{{ $subject->subject->name }}</td>
 
-<!-- ACADEMIC TABLE -->
-<table>
-    <thead>
-        <tr>
-            <th>Subject</th>
-            @if(isset($subjects[0]))
-                @foreach($subjects[0]->assessments as $assessment)
-                    <th class="text-center">{{ $assessment->name }}</th>
-                @endforeach
-            @endif
-            <th>Total</th>
-            <th>Grade</th>
-            <th>Pos</th>
-            <th>Avg</th>
-        </tr>
-    </thead>
+                                @foreach($subject->assessments as $assessment)
+                                    @php
+                                        $assessmentPalette = $performancePalette($assessment->score ?? 0);
+                                    @endphp
+                                    <td class="text-center">
+                                        <span class="score-chip" style="background: {{ $assessmentPalette['bg'] }}; color: {{ $assessmentPalette['text'] }};">
+                                            {{ $assessment->score ?? 0 }}
+                                        </span>
+                                    </td>
+                                @endforeach
 
-    <tbody>
-        @foreach($subjects as $subject)
-        <tr>
-            <td>{{ $subject->subject->name }}</td>
+                                <td class="text-center">
+                                    <span class="score-chip" style="background: {{ $subjectPalette['bg'] }}; color: {{ $subjectPalette['text'] }};">
+                                        {{ $subject->total ?? 0 }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="grade-chip" style="background: {{ $subjectPalette['bg'] }}; color: {{ $subjectPalette['text'] }};">
+                                        {{ $subject->grade ?? '-' }}
+                                    </span>
+                                </td>
+                                <td class="text-center">{{ $subject->subject_position ? ordinal((int) $subject->subject_position) : '-' }}</td>
+                                <td class="text-center">{{ number_format((float) ($subject->class_average ?? 0), 1) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
 
-            @foreach($subject->assessments as $assessment)
-                <td class="text-center">{{ $assessment->score }}</td>
-            @endforeach
+            <div class="spacer"></div>
 
-            <td class="text-center"><strong>{{ $subject->total }}</strong></td>
-            <td class="text-center">{{ $subject->grade }}</td>
-            <td class="text-center">{{ $subject->subject_position }}</td>
-            <td class="text-right">{{ $subject->class_average }}</td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
+            <p class="section-title">Performance Summary</p>
+            <div class="summary-card">
+                <table class="summary-grid">
+                    <tr>
+                        <td>
+                            <span class="summary-label">Total Score</span>
+                            <span class="summary-value">{{ number_format((float) ($result->total_score ?? 0), 0) }}</span>
+                            <div class="summary-note">Combined score across all subjects</div>
+                        </td>
+                        <td>
+                            <span class="summary-label">Average</span>
+                            <span class="summary-value">{{ number_format($averageScore, 1) }}</span>
+                            <div class="summary-note">Overall class performance average</div>
+                        </td>
+                        <td>
+                            <span class="summary-label">Position</span>
+                            <span class="summary-value">{{ $overallPosition }}</span>
+                            <div class="summary-note">Student rank in class</div>
+                        </td>
+                        <td>
+                            <span class="summary-label">Grade / Status</span>
+                            <span class="grade-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }}; font-size: 10px; padding: 6px 10px;">
+                                {{ $overallGrade ?: $overallPalette['label'] }}
+                            </span>
+                            <div class="summary-note">Performance band for this term</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
 
-<br>
+            <div class="spacer"></div>
 
-<!-- SUMMARY -->
-<table>
-    <tr>
-        <td>Total Score:</td>
-        <td>{{ $result->total_score ?? 0 }}</td>
-    </tr>
-    <tr>
-        <td>Average:</td>
-        <td>{{ $result->average_score ?? 0 }}</td>
-    </tr>
-    <tr>
-        <td>Position:</td>
-        <td>{{ $result ? ordinal($result->overall_position) : '-' }}</td>
-    </tr>
-</table>
+            <p class="section-title">Remarks</p>
+            <div class="remark-card">
+                <div class="remark-block">
+                    <span class="remark-label">Class Teacher's Remark</span>
+                    <div class="remark-value">{{ $remark->class_teacher_remark ?: 'No teacher remark available.' }}</div>
+                </div>
+                <div class="remark-block">
+                    <span class="remark-label">Head Teacher's Remark</span>
+                    <div class="remark-value">{{ $remark->head_teacher_remark ?: 'No head teacher remark available.' }}</div>
+                </div>
+            </div>
 
-<br>
-
-<!-- REMARKS -->
-<p><strong>Class Teacher:</strong> {{ $remark->teacher_remark ?? '' }}</p>
-<p><strong>Head Teacher:</strong> {{ $remark->principal_remark ?? '' }}</p>
-
+            <div class="footer-note">
+                This report card was generated electronically and is valid without manual alteration.
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
+
+
+

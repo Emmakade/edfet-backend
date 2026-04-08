@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Enrollment;
+use App\Models\SchoolClass;
 use App\Models\Term;
+use App\Models\Remark;
 use App\Services\RemarkService;
 use App\Services\ResultBuilderService;
 use App\Services\ResultComputationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use ZipArchive;
 
 class ReportCardController extends Controller
 {
@@ -80,6 +84,82 @@ class ReportCardController extends Controller
         $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
 
         return $this->renderPdfResponse($enrollment, (int) $validated['term_id'], true);
+    }
+
+    public function downloadClassPdf(Request $request)
+    {
+        $validated = $request->validate([
+            'school_class_id' => ['required', 'exists:school_classes,id'],
+            'term_id' => ['required', 'exists:terms,id'],
+        ]);
+
+        $term = Term::query()->findOrFail((int) $validated['term_id']);
+        $schoolClass = SchoolClass::query()->findOrFail((int) $validated['school_class_id']);
+
+        $enrollments = Enrollment::query()
+            ->with(['student', 'schoolClass', 'session'])
+            ->where('school_class_id', (int) $validated['school_class_id'])
+            ->where('session_id', (int) $term->session_id)
+            ->whereHas('student')
+            ->get()
+            ->sortBy(function (Enrollment $enrollment) {
+                $student = $enrollment->student;
+
+                return strtolower(trim(implode(' ', array_filter([
+                    $student?->surname,
+                    $student?->first_name,
+                    $student?->middle_name,
+                ]))));
+            })
+            ->values();
+
+        if ($enrollments->isEmpty()) {
+            return response()->json([
+                'message' => 'No students were found in this class for the selected term session.',
+            ], 404);
+        }
+
+        $zipPath = tempnam(sys_get_temp_dir(), 'report_cards_');
+
+        if ($zipPath === false) {
+            abort(Response::HTTP_INTERNAL_SERVER_ERROR, 'Unable to prepare the report card archive.');
+        }
+
+        $archivePath = $zipPath . '.zip';
+
+        if (! @rename($zipPath, $archivePath)) {
+            @unlink($zipPath);
+            abort(Response::HTTP_INTERNAL_SERVER_ERROR, 'Unable to prepare the report card archive.');
+        }
+
+        $zip = new ZipArchive();
+        $opened = $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        if ($opened !== true) {
+            @unlink($archivePath);
+            abort(Response::HTTP_INTERNAL_SERVER_ERROR, 'Unable to create the report card archive.');
+        }
+
+        foreach ($enrollments as $enrollment) {
+            $this->recomputeEnrollmentResults($enrollment, (int) $term->id);
+
+            $zip->addFromString(
+                $this->buildStudentReportFileName($enrollment, (int) $term->id),
+                $this->buildPdfBinary($enrollment, (int) $term->id)
+            );
+        }
+
+        $zip->close();
+
+        $archiveName = sprintf(
+            'report_cards_%s_term_%d.zip',
+            $this->safeFileName($schoolClass->name),
+            (int) $term->id
+        );
+
+        return response()->download($archivePath, $archiveName, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
     }
 
     public function myContext(Request $request)
@@ -265,9 +345,19 @@ class ReportCardController extends Controller
 
     private function renderPdfResponse(Enrollment $enrollment, int $termId, bool $download = false)
     {
+        $pdf = $this->buildPdfDocument($enrollment, $termId);
+        $fileName = $this->buildStudentReportFileName($enrollment, $termId);
+
+        return $download
+            ? $pdf->download($fileName)
+            : $pdf->stream($fileName);
+    }
+
+    private function buildPdfDocument(Enrollment $enrollment, int $termId)
+    {
         $payload = $this->buildReportPayload($enrollment, $termId);
 
-        $pdf = Pdf::loadView('report_cards.student', [
+        return Pdf::loadView('pdf.report_card', [
             'student' => $payload['student'],
             'enrollment' => $payload['enrollment'],
             'subjects' => $payload['subjects'],
@@ -275,20 +365,26 @@ class ReportCardController extends Controller
             'remark' => $payload['remark'],
             'term' => $payload['term'],
         ])->setPaper('a4', 'portrait');
+    }
+
+    private function buildPdfBinary(Enrollment $enrollment, int $termId): string
+    {
+        return $this->buildPdfDocument($enrollment, $termId)->output();
+    }
+
+    private function buildStudentReportFileName(Enrollment $enrollment, int $termId): string
+    {
+        $student = $enrollment->student;
 
         $studentName = $this->safeFileName(
-            $payload['student']->full_name ?? trim(
-                ($payload['student']->first_name ?? '') . ' ' .
-                ($payload['student']->middle_name ?? '') . ' ' .
-                ($payload['student']->surname ?? '')
+            $student?->full_name ?? trim(
+                ($student?->first_name ?? '') . ' ' .
+                ($student?->middle_name ?? '') . ' ' .
+                ($student?->surname ?? '')
             )
         );
 
-        $fileName = 'report_card_' . $studentName . '_term_' . $termId . '.pdf';
-
-        return $download
-            ? $pdf->download($fileName)
-            : $pdf->stream($fileName);
+        return 'report_card_' . $studentName . '_term_' . $termId . '.pdf';
     }
 
     private function resolveStudentEnrollment(int $studentId, ?int $sessionId = null): ?Enrollment
@@ -362,3 +458,5 @@ class ReportCardController extends Controller
         return trim($value, '_') ?: 'student';
     }
 }
+
+

@@ -91,6 +91,7 @@ class StudentsImport implements ToModel, WithHeadingRow
                         'phone_number' => $phoneNumber,
                         'login_email' => $loginEmail,
                         'number_in_class' => $numberInClass,
+                        'school_class_id' => $this->classId,
                     ]);
 
                     $student->update([
@@ -106,6 +107,7 @@ class StudentsImport implements ToModel, WithHeadingRow
                         'phone_number' => $phoneNumber ?: $student->phone_number,
                         'login_email' => $loginEmail ?: $student->login_email,
                         'number_in_class' => $numberInClass ?: $student->number_in_class,
+                        'school_class_id' => $this->classId,
                     ]);
                 }
 

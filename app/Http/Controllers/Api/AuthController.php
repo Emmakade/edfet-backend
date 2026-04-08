@@ -79,6 +79,7 @@ class AuthController extends Controller
         $frontendRole = match ($roleName) {
             'super-admin' => 'admin',
             'class-teacher' => 'teacher',
+            'subject-teacher' => 'teacher',
             default => $roleName,
         };
 

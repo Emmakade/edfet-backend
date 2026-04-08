@@ -14,19 +14,9 @@ class AssessmentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Assessment::with(['term', 'session'])
-            ->latest();
+        $query = Assessment::query()->latest();
 
-        // Optional filters
-        if ($request->term_id) {
-            $query->where('term_id', $request->term_id);
-        }
-
-        if ($request->session_id) {
-            $query->where('session_id', $request->session_id);
-        }
-
-        if ($request->type) {
+        if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
@@ -34,7 +24,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $assessments
+            'data' => $assessments,
         ]);
     }
 
@@ -47,26 +37,12 @@ class AssessmentController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'in:ca,exam'],
             'max_score' => ['required', 'numeric', 'min:1'],
-            'weight' => ['nullable', 'integer', 'min:1']
+            'weight' => ['nullable', 'integer', 'min:1'],
         ]);
-
-        // 🔥 Prevent duplicates
-        // $exists = Assessment::where([
-        //     'name' => $data['name'],
-        //     'term_id' => $data['term_id'],
-        //     'session_id' => $data['session_id'],
-        // ])->exists();
-
-        // if ($exists) {
-        //     return response()->json([
-        //         'status' => 'error',
-        //         'message' => 'Assessment already exists for this term & session'
-        //     ], 422);
-        // }
 
         $assessment = Assessment::create([
             ...$data,
-            'weight' => $data['weight'] ?? 1
+            'weight' => $data['weight'] ?? 1,
         ]);
 
         return response()->json([
@@ -83,7 +59,7 @@ class AssessmentController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'data' => $assessment->load('term', 'session')
+            'data' => $assessment,
         ]);
     }
 
@@ -95,24 +71,19 @@ class AssessmentController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'type' => ['sometimes', 'in:ca,exam'],
-            'term_id' => ['sometimes', 'exists:terms,id'],
-            'session_id' => ['sometimes', 'exists:sessions,id'],
             'max_score' => ['sometimes', 'numeric', 'min:1'],
-            'weight' => ['sometimes', 'integer', 'min:1']
+            'weight' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        // 🔥 Prevent duplicate on update
         if (isset($data['name'])) {
             $exists = Assessment::where('id', '!=', $assessment->id)
                 ->where('name', $data['name'])
-                ->where('term_id', $data['term_id'] ?? $assessment->term_id)
-                ->where('session_id', $data['session_id'] ?? $assessment->session_id)
                 ->exists();
 
             if ($exists) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Duplicate assessment for same term/session'
+                    'message' => 'Duplicate assessment name',
                 ], 422);
             }
         }
@@ -122,7 +93,7 @@ class AssessmentController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Assessment updated',
-            'data' => $assessment->fresh()->load('term', 'session')
+            'data' => $assessment->fresh(),
         ]);
     }
 
@@ -131,13 +102,12 @@ class AssessmentController extends Controller
      */
     public function destroy(Assessment $assessment)
     {
-        // 🔥 Prevent deleting if used
         $used = Score::where('assessment_id', $assessment->id)->exists();
 
         if ($used) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Cannot delete assessment already used in scores'
+                'message' => 'Cannot delete assessment already used in scores',
             ], 422);
         }
 
@@ -145,8 +115,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Assessment deleted successfully'
+            'message' => 'Assessment deleted successfully',
         ]);
     }
 }
-

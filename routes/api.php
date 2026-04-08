@@ -20,6 +20,9 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\ClassSubjectController;
 use App\Http\Controllers\Api\StudentAccountController;
+use App\Http\Controllers\Api\StudentManagementController;
+use App\Http\Controllers\Api\TeacherController;
+use App\Http\Controllers\Api\TeacherWorkspaceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,102 +33,109 @@ use App\Http\Controllers\Api\StudentAccountController;
 |
 */
 
-// Public auth routes
-Route::post('register', [AuthController::class, 'register']); // restrict later in middleware if needed
+Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
-// Protected routes
 Route::middleware(['auth:sanctum'])->group(function () {
-
-    // Auth
     Route::get('profile', [AuthController::class, 'profile']);
     Route::post('logout', [AuthController::class, 'logout']);
 
-    // School config - only super-admin (enforced by FormRequest)
     Route::post('school', [SchoolConfigController::class, 'store']);
     Route::get('school', [SchoolConfigController::class, 'show']);
     Route::put('school', [SchoolConfigController::class, 'update']);
 
-    // Classes - role-based: class-teacher & super-admin (middleware or request authorize)
     Route::apiResource('classes', ClassController::class)->parameters(['classes' => 'school_class']);
+    Route::apiResource('subjects', SubjectController::class)->only(['index', 'store', 'update', 'destroy']);
 
-    // Subjects - super-admin only for create/update/delete
-    Route::apiResource('subjects', SubjectController::class)->only(['index','store','update','destroy']);
+    // Student APIs
+    Route::prefix('students')->group(function () {
+        // Vue frontend friendly endpoints
+        Route::get('list', [StudentManagementController::class, 'getStudents']);
+        Route::post('create', [StudentManagementController::class, 'createStudent']);
+        Route::post('import-file', [StudentManagementController::class, 'importStudent']);
+        Route::post('promote', [StudentManagementController::class, 'promoteStudent']);
+        Route::post('migrate', [StudentManagementController::class, 'migrateStudents']);
 
-    // Students - class teachers and super-admins
-    Route::get('students/export-enrollments', [StudentController::class, 'exportStudentsWithEnrollments']);
+        // Existing REST and utility endpoints
+        Route::get('export-enrollments', [StudentController::class, 'exportStudentsWithEnrollments']);
+        Route::get('class/{classId}', [StudentController::class, 'getByClass']);
+        Route::post('import', [StudentController::class, 'import']);
+        Route::get('export', [StudentController::class, 'export']);
+        Route::get('{studentId}/subjects/{sessionId}', [ClassSubjectController::class, 'getStudentSubjects']);
+    });
     Route::apiResource('students', StudentController::class);
-    Route::get('students/class/{classId}', [StudentController::class, 'getByClass']);
-    Route::post('students/import-student', [StudentController::class, 'importStudent']);
-    Route::post('students/import', [StudentController::class, 'import']);
-    Route::get('students/{studentId}/subjects/{sessionId}', [ClassSubjectController::class, 'getStudentSubjects']);
 
+    //Students Account
     Route::get('student-accounts', [StudentAccountController::class, 'index']);
     Route::post('student-accounts/create-missing', [StudentAccountController::class, 'createMissingAccounts']);
     Route::post('student-accounts/{student}/reset-password', [StudentAccountController::class, 'resetPassword']);
     Route::get('student-accounts/export-credentials', [StudentAccountController::class, 'exportCredentials']);
-    
 
-    // Attendance
-    Route::post('attendances', [AttendanceController::class, 'store']);
-    Route::get('attendances/{student}/{session}/{term}', [AttendanceController::class, 'show']);
-    Route::get('attendances/class/{classId}/{session}/{term}', [AttendanceController::class, 'getByClass']);
+    Route::apiResource('teachers', TeacherController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+    Route::post('teachers/{teacher}/class-teacher', [TeacherController::class, 'assignClassTeacher']);
+    Route::delete('teachers/{teacher}/class-teacher/{schoolClass}', [TeacherController::class, 'removeClassTeacher'])->whereNumber('schoolClass');
+    Route::post('teachers/{teacher}/subject-assignments', [TeacherController::class, 'assignSubjects']);
+    Route::delete('teachers/{teacher}/subject-assignments', [TeacherController::class, 'unassignSubjects']);
+    Route::get('teachers/{teacher}/assignments', [TeacherController::class, 'assignments']);
+    Route::get('teacher/me/assignments', [TeacherWorkspaceController::class, 'assignments']);
+    Route::get('teacher/me/students', [TeacherWorkspaceController::class, 'students']);
 
-    // Scores
+    Route::prefix('attendances')->group(function () {
+        Route::post('', [AttendanceController::class, 'store']);
+        Route::post('bulk', [AttendanceController::class, 'storeClassAttendance']);
+        Route::get('class/{classId}/{session}/{term}', [AttendanceController::class, 'getByClass'])
+            ->whereNumber('classId')
+            ->whereNumber('session')
+            ->whereNumber('term');
+        Route::get('{student}/{session}/{term}', [AttendanceController::class, 'show'])
+            ->whereNumber('student')
+            ->whereNumber('session')
+            ->whereNumber('term');
+    });
+
+    Route::prefix('teacher/me/attendances')->group(function () {
+        Route::post('', [AttendanceController::class, 'store']);
+        Route::post('bulk', [AttendanceController::class, 'storeClassAttendance']);
+    });
+
     Route::post('scores/import', [ScoreController::class, 'importScores'])->name('scores.import');
     Route::post('scores/bulk', [ScoreController::class, 'storeBulkScores']);
+    Route::post('teacher/me/scores/bulk', [ScoreController::class, 'storeBulkScores']);
     Route::get('scores/{score}', [ScoreController::class, 'show'])->whereNumber('score');
+    Route::put('scores/{score}', [ScoreController::class, 'update'])->whereNumber('score');
     Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->whereNumber('score');
-    // Route::post('scores/recompute', [ScoreController::class, 'recomputeAll']);
 
-    // Sessions - academic sessions management
     Route::apiResource('sessions', SessionController::class);
-
-    // Terms - academic terms within sessions
     Route::apiResource('terms', TermController::class);
-
-    // Enrollments - student enrollments in classes
     Route::apiResource('enrollments', EnrollmentController::class);
     Route::post('enrollments/promote', [EnrollmentController::class, 'promote']);
-
-    // Assessments - exam management
     Route::apiResource('assessments', AssessmentController::class);
-
-    // Grade Boundaries - grading scale management
     Route::apiResource('grade-boundaries', GradeBoundaryController::class);
-
-    // Remarks - remark templates management
     Route::apiResource('remarks', RemarkController::class);
 
-    // Class Summaries - class performance summaries
     Route::get('class-summaries/{class_id}/{term_id}/{session_id}', [ClassSummaryController::class, 'show']);
     Route::get('class-summaries', [ClassSummaryController::class, 'index']);
 
-    // Report Generation
     Route::get('report-card', [ReportCardController::class, 'show']);
     Route::get('report-card/preview-pdf', [ReportCardController::class, 'previewPdf']);
     Route::get('report-card/download-pdf', [ReportCardController::class, 'downloadPdf']);
+    Route::get('report-card/download-class-pdf', [ReportCardController::class, 'downloadClassPdf']);
 
     Route::get('me/student-context', [ReportCardController::class, 'myContext']);
     Route::get('me/report-card', [ReportCardController::class, 'myReport']);
     Route::get('me/report-card/preview-pdf', [ReportCardController::class, 'myPreviewPdf']);
     Route::get('me/report-card/download-pdf', [ReportCardController::class, 'myDownloadPdf']);
 
-    // Dashboard & Analytics
     Route::get('dashboard/school-stats', [DashboardController::class, 'schoolStats']);
     Route::get('dashboard/class-performance/{classId}/{termId}/{sessionId}', [DashboardController::class, 'classPerformance']);
     Route::get('dashboard/student-progress/{studentId}', [DashboardController::class, 'studentProgress']);
 
-    // Utility endpoints
     Route::get('current-session', [SessionController::class, 'current']);
     Route::get('current-term', [TermController::class, 'current']);
     Route::get('active-classes', [ClassController::class, 'active']);
     Route::get('subjects/class/{classId}', [SubjectController::class, 'getByClass']);
     Route::post('class-subjects/assign', [ClassSubjectController::class, 'assign']);
 
-    Route::post('students/import', [StudentController::class, 'import']);
-    Route::get('students/export', [StudentController::class, 'export']);
     Route::get('attendance/analytics', [AttendanceController::class, 'analytics']);
 });
-
 

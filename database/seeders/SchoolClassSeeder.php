@@ -52,6 +52,46 @@ class SchoolClassSeeder extends Seeder
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
+                [
+                    'name' => 'Nursery 3',
+                    'level' => 'Primary',
+                    'section' => 'A',
+                    'school_id' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'Nursery 2',
+                    'level' => 'Primary',
+                    'section' => 'A',
+                    'school_id' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'Nursery 1',
+                    'level' => 'Primary',
+                    'section' => 'A',
+                    'school_id' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'Pre Nursery A',
+                    'level' => 'Primary',
+                    'section' => 'A',
+                    'school_id' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'Pre Nursery B',
+                    'level' => 'Primary',
+                    'section' => 'A',
+                    'school_id' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
                 
             ]);
         }
