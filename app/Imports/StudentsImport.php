@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\Enrollment;
 use App\Models\Student;
 use App\Services\StudentAccountLinkService;
+use App\Services\StudentCredentialService;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -13,14 +14,23 @@ class StudentsImport implements ToModel, WithHeadingRow
 {
     protected int $sessionId;
     protected int $classId;
+    protected bool $createLoginAccounts;
+    protected string $emailDomain;
 
     public array $successRows = [];
     public array $failedRows = [];
 
-    public function __construct($sessionId, $classId)
+    public function __construct(
+        $sessionId,
+        $classId,
+        bool $createLoginAccounts = false,
+        string $emailDomain = 'school.local'
+    )
     {
         $this->sessionId = (int) $sessionId;
         $this->classId = (int) $classId;
+        $this->createLoginAccounts = $createLoginAccounts;
+        $this->emailDomain = trim(strtolower($emailDomain)) ?: 'school.local';
     }
 
     public function model(array $row)
@@ -122,10 +132,21 @@ class StudentsImport implements ToModel, WithHeadingRow
                     ]
                 );
 
+                if ($this->createLoginAccounts && ! $student->login_email) {
+                    $generatedEmail = app(StudentCredentialService::class)
+                        ->generateEmailIfMissing($student, $this->emailDomain);
+
+                    $student->update([
+                        'login_email' => $generatedEmail,
+                    ]);
+                }
+
+                $student->refresh();
+
                 $linkedUser = null;
                 if ($student->login_email) {
                     $linkedUser = app(StudentAccountLinkService::class)->linkOrCreateForStudent(
-                        $student->fresh(),
+                        $student,
                         $student->login_email,
                         true
                     );

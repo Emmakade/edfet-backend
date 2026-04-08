@@ -9,6 +9,7 @@ use App\Services\StudentAccountLinkService;
 use App\Services\StudentCredentialService;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use RuntimeException;
 
 class StudentAccountController extends Controller
 {
@@ -123,12 +124,39 @@ class StudentAccountController extends Controller
 
         $validated = $request->validate([
             'password' => ['nullable', 'string', 'min:6'],
+            'create_if_missing' => ['nullable', 'boolean'],
+            'email_domain' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $result = app(StudentCredentialService::class)->resetPassword(
-            $student->load('user'),
-            $validated['password'] ?? null
-        );
+        $student->load('user');
+
+        if (! $student->user && (bool) ($validated['create_if_missing'] ?? true)) {
+            $credentialService = app(StudentCredentialService::class);
+            $email = $student->login_email ?: $credentialService->generateEmailIfMissing(
+                $student,
+                $validated['email_domain'] ?? 'school.local'
+            );
+
+            app(StudentAccountLinkService::class)->linkOrCreateForStudent(
+                $student->fresh(),
+                $email,
+                true
+            );
+
+            $student->refresh()->load('user');
+        }
+
+        try {
+            $result = app(StudentCredentialService::class)->resetPassword(
+                $student,
+                $validated['password'] ?? null
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'status' => 'success',

@@ -70,7 +70,7 @@ $overallPalette = $performancePalette($averageScore);
         }
         .hero {
             padding: 18px 22px 16px;
-            background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 48%, #166534 100%);
+            background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 55%, #22d3ee 100%);
             color: #ffffff;
         }
         .school-header {
@@ -161,11 +161,11 @@ $overallPalette = $performancePalette($averageScore);
         }
         .content {
             padding: 18px;
-            background: #fffdf8;
+            background: #f8fafc;
         }
         .section-title {
             margin: 0 0 10px;
-            color: #7f1d1d;
+            color: #0369a1; /* cool cyan */
             font-size: 11px;
             font-weight: bold;
             letter-spacing: 0.08em;
@@ -175,7 +175,7 @@ $overallPalette = $performancePalette($averageScore);
         .summary-card,
         .remark-card {
             width: 100%;
-            border: 1px solid #ead7d7;
+            border: 1px solid #e0f2fe;
             border-radius: 14px;
             background: #ffffff;
         }
@@ -196,24 +196,22 @@ $overallPalette = $performancePalette($averageScore);
             letter-spacing: 0.08em;
         }
         .info-value {
-            color: #b42318;
-            font-size: 12px;
-            font-weight: bold;
+            color: #0f172a;
         }
         .spacer {
             height: 14px;
         }
         .marks-wrap {
-            border: 1px solid #ead7d7;
+            border: 1px solid #e0f2fe;
             border-radius: 14px;
             overflow: hidden;
             background: #ffffff;
         }
         .marks-table th {
             padding: 10px 8px;
-            background: #7f1d1d;
+            background: #0ea5e9;
             color: #ffffff;
-            border-right: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
             font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
@@ -228,7 +226,7 @@ $overallPalette = $performancePalette($averageScore);
             color: #344054;
         }
         .marks-table tbody tr:nth-child(even) {
-            background: #fff7f7;
+            background: #f0f9ff;
         }
         .subject-name {
             font-weight: bold;
@@ -267,7 +265,7 @@ $overallPalette = $performancePalette($averageScore);
             letter-spacing: 0.08em;
         }
         .summary-value {
-            color: #b42318;
+            color: #0284c7;
             font-size: 16px;
             font-weight: bold;
         }
@@ -280,11 +278,10 @@ $overallPalette = $performancePalette($averageScore);
             padding: 14px;
         }
         .remark-block {
-            margin-bottom: 10px;
+            border-left: 4px solid #0ea5e9;
             padding: 10px 12px;
-            border-left: 4px solid #b42318;
             border-radius: 10px;
-            background: #fff7f7;
+            background: #f0f9ff;
         }
         .remark-block:last-child {
             margin-bottom: 0;

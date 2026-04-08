@@ -7,6 +7,7 @@ use App\Http\Requests\Student\StudentStoreRequest;
 use App\Imports\StudentsImport;
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Services\StudentAccountLinkService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -81,7 +82,17 @@ class StudentManagementController extends Controller
                 ]);
             }
 
+            if (! empty($data['create_login_account']) && ! empty($data['login_email'])) {
+                app(StudentAccountLinkService::class)->linkOrCreateForStudent(
+                    $student->fresh(),
+                    $data['login_email'],
+                    true,
+                    $data['login_password'] ?? null
+                );
+            }
+
             return $student->fresh([
+                'user',
                 'schoolClass',
                 'enrollments.schoolClass',
                 'currentEnrollment.session',
@@ -101,11 +112,15 @@ class StudentManagementController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx,csv'],
             'session_id' => ['required', 'exists:sessions,id'],
             'school_class_id' => ['required', 'exists:school_classes,id'],
+            'create_login_accounts' => ['nullable', 'boolean'],
+            'email_domain' => ['nullable', 'string', 'max:255'],
         ]);
 
         $import = new StudentsImport(
             $validated['session_id'],
-            $validated['school_class_id']
+            $validated['school_class_id'],
+            (bool) ($validated['create_login_accounts'] ?? false),
+            $validated['email_domain'] ?? 'school.local'
         );
 
         Excel::import($import, $request->file('file'));
