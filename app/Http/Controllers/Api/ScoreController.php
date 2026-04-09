@@ -390,7 +390,7 @@ class ScoreController extends Controller
         $assessment = null;
         
         if (isset($validated['subject_id'])) {
-            $subject = ClassSubject::findOrFail($validated['subject_id']);
+            $subject = Subject::findOrFail($validated['subject_id']);
         }
         
         if (isset($validated['assessment_id'])) {
