@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Enrollment;
+use App\Models\School;
 use App\Models\SchoolClass;
 use App\Models\Term;
 use App\Models\Remark;
@@ -334,6 +335,13 @@ class ReportCardController extends Controller
 
         $reportEnrollment = $report['enrollment']->loadMissing(['schoolClass.school', 'session']);
 
+        if ($reportEnrollment->schoolClass && ! $reportEnrollment->schoolClass->school) {
+            $fallbackSchool = School::first();
+            if ($fallbackSchool) {
+                $reportEnrollment->schoolClass->setRelation('school', $fallbackSchool);
+            }
+        }
+
         $attendance = Attendance::where('student_id', $enrollment->student_id)
             ->where('session_id', $enrollment->session_id)
             ->where('term_id', $termId)
@@ -363,6 +371,10 @@ class ReportCardController extends Controller
     private function buildPdfDocument(Enrollment $enrollment, int $termId)
     {
         $payload = $this->buildReportPayload($enrollment, $termId);
+        $school = $payload['enrollment']->schoolClass->school ?? School::first();
+        $schoolLogo = $this->resolveSchoolLogo(
+            $school?->extra['school_logo'] ?? $school?->extra['logo'] ?? null
+        );
 
         return Pdf::loadView('pdf.report_card', [
             'student' => $payload['student'],
@@ -372,7 +384,40 @@ class ReportCardController extends Controller
             'remark' => $payload['remark'],
             'term' => $payload['term'],
             'attendance' => $payload['attendance'],
+            'school' => $school,
+            'schoolLogo' => $schoolLogo,
         ])->setPaper('a4', 'portrait');
+    }
+
+    private function resolveSchoolLogo(?string $logo): ?string
+    {
+        if (! $logo) {
+            return null;
+        }
+
+        if (preg_match('/^https?:\/\//i', $logo)) {
+            try {
+                $contents = @file_get_contents($logo);
+                if ($contents) {
+                    $extension = strtolower(pathinfo(parse_url($logo, PHP_URL_PATH), PATHINFO_EXTENSION));
+                    $mime = in_array($extension, ['png', 'jpg', 'jpeg', 'gif'], true)
+                        ? 'image/' . ($extension === 'jpg' ? 'jpeg' : $extension)
+                        : 'image/png';
+                    return 'data:' . $mime . ';base64,' . base64_encode($contents);
+                }
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        if (! preg_match('/^(data:|file:\/\/|\/|[A-Za-z]:\\\\)/', $logo)) {
+            $local = public_path(ltrim($logo, '/\\'));
+            if (file_exists($local)) {
+                return $local;
+            }
+        }
+
+        return $logo;
     }
 
     private function buildPdfBinary(Enrollment $enrollment, int $termId): string
