@@ -104,6 +104,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('scores/{score}', [ScoreController::class, 'show'])->whereNumber('score');
     Route::put('scores/{score}', [ScoreController::class, 'update'])->whereNumber('score');
     Route::delete('scores/{score}', [ScoreController::class, 'destroy'])->whereNumber('score');
+    Route::get('teacher/me/scores/bulk', [ScoreController::class, 'getBulkScores']);
 
     Route::apiResource('sessions', SessionController::class);
     Route::apiResource('terms', TermController::class);

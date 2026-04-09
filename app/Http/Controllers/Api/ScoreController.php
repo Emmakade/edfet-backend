@@ -315,4 +315,43 @@ class ScoreController extends Controller
             'failed_rows' => $import->failedRows,
         ], $status === 'failed' ? 422 : 200);
     }
+
+    public function getBulkScores(Request $request)
+    {
+        $validated = $request->validate([
+            'school_class_id' => 'required|exists:school_classes,id',
+            'term_id' => 'required|exists:terms,id',
+            'session_id' => 'required|exists:sessions,id',
+        ]);
+
+        $assignedSubjectIds = ClassSubject::query()
+            ->where('school_class_id', $validated['school_class_id'])
+            ->where('session_id', $validated['session_id'])
+            ->where('teacher_id', $request->user()->id)
+            ->pluck('subject_id');
+
+        if (!$request->user()->hasRole('super-admin') && $assignedSubjectIds->isEmpty() && !$this->teacherAccessService->isClassTeacherForClass(
+            $request->user(),
+            (int) $validated['school_class_id']
+        )) {
+            abort(403, 'You are not allowed to view scores for this class.');
+        }
+
+        if ($this->teacherAccessService->isClassTeacherForClass($request->user(), (int) $validated['school_class_id'])) {
+            $scores = Score::where('school_class_id', $validated['school_class_id'])
+                ->where('term_id', $validated['term_id'])
+                ->where('session_id', $validated['session_id'])
+                ->with('enrollment.student', 'subject', 'assessment')
+                ->get();
+        } else {
+            $scores = Score::where('school_class_id', $validated['school_class_id'])
+                ->where('term_id', $validated['term_id'])
+                ->where('session_id', $validated['session_id'])
+                ->whereIn('subject_id', $assignedSubjectIds)
+                ->with('enrollment.student', 'subject', 'assessment')
+                ->get();
+        }
+
+        return response()->json($scores);
+    }
 }
