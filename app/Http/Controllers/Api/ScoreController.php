@@ -11,6 +11,7 @@ use App\Models\SchoolClass;
 use App\Models\Score;
 use App\Models\SessionModel;
 use App\Models\Subject;
+use App\Models\SubjectResult;
 use App\Models\Term;
 use App\Services\ResultComputationService;
 use App\Services\TeacherAccessService;
@@ -414,6 +415,115 @@ class ScoreController extends Controller
             'has_scores' => $scores->isNotEmpty(),
             'total_students' => $enrollments->count(),
             'students_with_scores' => $scores->groupBy('enrollment_id')->count(),
+        ]);
+    }
+
+    public function broadsheet(Request $request)
+    {
+        $validated = $request->validate([
+            'school_class_id' => 'required|exists:school_classes,id',
+            'term_id' => 'required|exists:terms,id',
+            'session_id' => 'required|exists:sessions,id',
+        ]);
+
+        $schoolClass = SchoolClass::findOrFail($validated['school_class_id']);
+        $term = Term::findOrFail($validated['term_id']);
+        $session = SessionModel::findOrFail($validated['session_id']);
+
+        $user = $request->user();
+        $hasAccess = $user->hasRole('super-admin')
+            || $this->teacherAccessService->isClassTeacherForClass($user, (int) $schoolClass->id);
+
+        if (! $hasAccess) {
+            abort(403, 'You are not allowed to view the broadsheet for this class.');
+        }
+
+        $subjects = ClassSubject::with('subject')
+            ->where('school_class_id', $schoolClass->id)
+            ->where('session_id', $session->id)
+            ->orderBy('subject_id')
+            ->get();
+
+        $enrollments = Enrollment::with('student')
+            ->where('school_class_id', $schoolClass->id)
+            ->where('session_id', $session->id)
+            ->get();
+
+        $scores = Score::where('school_class_id', $schoolClass->id)
+            ->where('term_id', $term->id)
+            ->where('session_id', $session->id)
+            ->with('assessment', 'subject')
+            ->get();
+
+        $subjectResults = SubjectResult::where('term_id', $term->id)
+            ->whereIn('enrollment_id', $enrollments->pluck('id'))
+            ->get()
+            ->keyBy(fn (SubjectResult $record) => $record->enrollment_id . ':' . $record->subject_id);
+
+        $scoreGroups = [];
+        foreach ($scores as $score) {
+            $scoreGroups[$score->enrollment_id][$score->subject_id][] = [
+                'assessment_id' => $score->assessment_id,
+                'assessment_name' => $score->assessment?->name,
+                'score' => $score->score,
+                'max_score' => $score->assessment?->max_score,
+            ];
+        }
+
+        $students = $enrollments->map(function ($enrollment) use ($subjects, $scoreGroups, $subjectResults) {
+            $student = $enrollment->student;
+            $row = [
+                'enrollment_id' => $enrollment->id,
+                'student_id' => $student->id,
+                'student_name' => trim(($student->surname ?? '') . ' ' . ($student->first_name ?? '')),
+                'admission_number' => $student->admission_number,
+                'subjects' => [],
+                'total_score' => 0,
+                'average_score' => 0,
+            ];
+
+            $subjectCount = 0;
+            foreach ($subjects as $classSubject) {
+                $subjectId = $classSubject->subject_id;
+                $subjectKey = $enrollment->id . ':' . $subjectId;
+                $assessmentScores = $scoreGroups[$enrollment->id][$subjectId] ?? [];
+                $rawTotal = array_sum(array_column($assessmentScores, 'score'));
+                $subjectResult = $subjectResults->get($subjectKey);
+
+                $subjectTotal = $subjectResult?->total ?? $rawTotal;
+                $row['subjects'][] = [
+                    'subject_id' => $subjectId,
+                    'subject_name' => $classSubject->subject?->name,
+                    'scores' => $assessmentScores,
+                    'total_score' => $subjectTotal,
+                    'grade' => $subjectResult?->grade,
+                    'remark' => $subjectResult?->remark,
+                    'class_average' => $subjectResult?->class_average,
+                    'class_highest' => $subjectResult?->class_highest,
+                    'class_lowest' => $subjectResult?->class_lowest,
+                ];
+
+                $row['total_score'] += $subjectTotal;
+                $subjectCount++;
+            }
+
+            $row['average_score'] = $subjectCount > 0 ? round($row['total_score'] / $subjectCount, 2) : 0;
+
+            return $row;
+        });
+
+        return response()->json([
+            'context' => [
+                'term' => $term,
+                'session' => $session,
+                'school_class' => $schoolClass,
+                'subjects' => $subjects->map(fn ($classSubject) => [
+                    'subject_id' => $classSubject->subject_id,
+                    'subject_name' => $classSubject->subject?->name,
+                ]),
+            ],
+            'students' => $students,
+            'total_students' => $enrollments->count(),
         ]);
     }
 }
