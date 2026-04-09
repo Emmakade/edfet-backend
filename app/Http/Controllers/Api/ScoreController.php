@@ -7,7 +7,11 @@ use App\Imports\ScoresImport;
 use App\Models\Assessment;
 use App\Models\ClassSubject;
 use App\Models\Enrollment;
+use App\Models\SchoolClass;
 use App\Models\Score;
+use App\Models\SessionModel;
+use App\Models\Subject;
+use App\Models\Term;
 use App\Services\ResultComputationService;
 use App\Services\TeacherAccessService;
 use Illuminate\Http\Request;
@@ -382,18 +386,18 @@ class ScoreController extends Controller
             ->get();
 
         // Fetch context objects for validation and UI confirmation
-        $term = \App\Models\Term::findOrFail($validated['term_id']);
-        $session = \App\Models\SessionModel::findOrFail($validated['session_id']);
-        $schoolClass = \App\Models\SchoolClass::findOrFail($validated['school_class_id']);
+        $term = Term::findOrFail($validated['term_id']);
+        $session = SessionModel::findOrFail($validated['session_id']);
+        $schoolClass = SchoolClass::findOrFail($validated['school_class_id']);
         
         $subject = null;
         $assessment = null;
         
-        if (isset($validated['subject_id'])) {
+        if (!empty($validated['subject_id'])) {
             $subject = Subject::findOrFail($validated['subject_id']);
         }
         
-        if (isset($validated['assessment_id'])) {
+        if (!empty($validated['assessment_id'])) {
             $assessment = Assessment::findOrFail($validated['assessment_id']);
         }
 
