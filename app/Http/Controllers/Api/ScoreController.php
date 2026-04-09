@@ -322,36 +322,94 @@ class ScoreController extends Controller
             'school_class_id' => 'required|exists:school_classes,id',
             'term_id' => 'required|exists:terms,id',
             'session_id' => 'required|exists:sessions,id',
+            'subject_id' => 'nullable|exists:subjects,id',
+            'assessment_id' => 'nullable|exists:assessments,id',
         ]);
 
+        // Check authorization
         $assignedSubjectIds = ClassSubject::query()
             ->where('school_class_id', $validated['school_class_id'])
             ->where('session_id', $validated['session_id'])
             ->where('teacher_id', $request->user()->id)
             ->pluck('subject_id');
 
-        if (!$request->user()->hasRole('super-admin') && $assignedSubjectIds->isEmpty() && !$this->teacherAccessService->isClassTeacherForClass(
+        $isClassTeacher = $this->teacherAccessService->isClassTeacherForClass(
             $request->user(),
             (int) $validated['school_class_id']
-        )) {
+        );
+
+        $isSuperAdmin = $request->user()->hasRole('super-admin');
+
+        // Check if user has permission to view scores for this class
+        if (!$isSuperAdmin && $assignedSubjectIds->isEmpty() && !$isClassTeacher) {
             abort(403, 'You are not allowed to view scores for this class.');
         }
 
-        if ($this->teacherAccessService->isClassTeacherForClass($request->user(), (int) $validated['school_class_id'])) {
-            $scores = Score::where('school_class_id', $validated['school_class_id'])
-                ->where('term_id', $validated['term_id'])
-                ->where('session_id', $validated['session_id'])
-                ->with('enrollment.student', 'subject', 'assessment')
-                ->get();
-        } else {
-            $scores = Score::where('school_class_id', $validated['school_class_id'])
-                ->where('term_id', $validated['term_id'])
-                ->where('session_id', $validated['session_id'])
-                ->whereIn('subject_id', $assignedSubjectIds)
-                ->with('enrollment.student', 'subject', 'assessment')
-                ->get();
+        // If teacher has specific subjects assigned, validate access to requested subject
+        if (!$isSuperAdmin && !$isClassTeacher && isset($validated['subject_id'])) {
+            if (!$assignedSubjectIds->contains($validated['subject_id'])) {
+                abort(403, 'You are not allowed to view scores for this subject.');
+            }
         }
 
-        return response()->json($scores);
+        // Build scores query
+        $scoresQuery = Score::where('school_class_id', $validated['school_class_id'])
+            ->where('term_id', $validated['term_id'])
+            ->where('session_id', $validated['session_id']);
+
+        // Filter by subject if provided
+        if (isset($validated['subject_id'])) {
+            $scoresQuery->where('subject_id', $validated['subject_id']);
+        } elseif (!$isSuperAdmin && !$isClassTeacher) {
+            // If not super-admin and not class teacher, only show assigned subjects
+            $scoresQuery->whereIn('subject_id', $assignedSubjectIds);
+        }
+
+        // Filter by assessment if provided
+        if (isset($validated['assessment_id'])) {
+            $scoresQuery->where('assessment_id', $validated['assessment_id']);
+        }
+
+        $scores = $scoresQuery
+            ->with('enrollment.student', 'subject', 'assessment')
+            ->orderBy('enrollment_id')
+            ->get();
+
+        // Get enrollments for the class to include students without scores
+        $enrollments = Enrollment::where('school_class_id', $validated['school_class_id'])
+            ->where('session_id', $validated['session_id'])
+            ->with('student')
+            ->get();
+
+        // Fetch context objects for validation and UI confirmation
+        $term = \App\Models\Term::findOrFail($validated['term_id']);
+        $session = \App\Models\SessionModel::findOrFail($validated['session_id']);
+        $schoolClass = \App\Models\SchoolClass::findOrFail($validated['school_class_id']);
+        
+        $subject = null;
+        $assessment = null;
+        
+        if (isset($validated['subject_id'])) {
+            $subject = ClassSubject::findOrFail($validated['subject_id']);
+        }
+        
+        if (isset($validated['assessment_id'])) {
+            $assessment = Assessment::findOrFail($validated['assessment_id']);
+        }
+
+        return response()->json([
+            'context' => [
+                'term' => $term,
+                'session' => $session,
+                'school_class' => $schoolClass,
+                'subject' => $subject,
+                'assessment' => $assessment,
+            ],
+            'enrollments' => $enrollments,
+            'scores' => $scores,
+            'has_scores' => $scores->isNotEmpty(),
+            'total_students' => $enrollments->count(),
+            'students_with_scores' => $scores->groupBy('enrollment_id')->count(),
+        ]);
     }
 }
