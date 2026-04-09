@@ -73,7 +73,7 @@ $overallPalette = $performancePalette($averageScore);
         }
         .hero {
             padding: 18px 22px 16px;
-            background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 55%, #22d3ee 100%);
+            background: #0ea5e9;
             color: #ffffff;
         }
         .school-header {
@@ -326,14 +326,12 @@ $overallPalette = $performancePalette($averageScore);
                         </div>
                     </td>
                     <td class="school-meta-cell">
-                        <div class="school-name">{{ $schoolName }}</div>
+                        <div class="school-name">GOMAL BAPTIST</div>
                         @if($schoolAddress)
-                            <div class="school-line">{{ $schoolAddress }}</div>
+                            <div class="school-line">Old Osogbo road, Ogbomoso</div>
                         @endif
                         <div class="school-line">
-                            @if($schoolMailbox)
-                                P.O. Box: {{ $schoolMailbox }}
-                            @endif
+                                P.O. Box: 1981, Ogbomoso
                             @if($schoolMailbox && ($schoolPhone || $schoolEmail))
                                 &nbsp; | &nbsp;
                             @endif
@@ -347,9 +345,9 @@ $overallPalette = $performancePalette($averageScore);
                                 Email: {{ $schoolEmail }}
                             @endif
                         </div>
-                        @if($schoolMotto)
-                            <div class="school-motto">{{ $schoolMotto }}</div>
-                        @endif
+                        
+                            <div class="school-motto">Arise and Shine</div>
+                        
                     </td>
                 </tr>
             </table>

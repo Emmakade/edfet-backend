@@ -15,7 +15,7 @@ class ResultBuilderService
     {
         $enrollment = Enrollment::with([
             'student.user',
-            'schoolClass',
+            'schoolClass.school',
         ])->findOrFail($enrollmentId);
 
         $assessments = Assessment::query()

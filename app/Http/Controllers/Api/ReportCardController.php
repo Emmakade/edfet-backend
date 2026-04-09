@@ -41,7 +41,7 @@ class ReportCardController extends Controller
         ]);
 
         $enrollment = Enrollment::query()
-            ->with(['student', 'schoolClass', 'session'])
+            ->with(['student', 'schoolClass.school', 'session'])
             ->findOrFail((int) $validated['enrollment_id']);
 
         $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
@@ -64,7 +64,7 @@ class ReportCardController extends Controller
         ]);
 
         $enrollment = Enrollment::query()
-            ->with(['student', 'schoolClass', 'session'])
+            ->with(['student', 'schoolClass.school', 'session'])
             ->findOrFail((int) $validated['enrollment_id']);
 
         $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
@@ -80,7 +80,7 @@ class ReportCardController extends Controller
         ]);
 
         $enrollment = Enrollment::query()
-            ->with(['student', 'schoolClass', 'session'])
+            ->with(['student', 'schoolClass.school', 'session'])
             ->findOrFail((int) $validated['enrollment_id']);
 
         $this->recomputeEnrollmentResults($enrollment, (int) $validated['term_id']);
@@ -99,7 +99,7 @@ class ReportCardController extends Controller
         $schoolClass = SchoolClass::query()->findOrFail((int) $validated['school_class_id']);
 
         $enrollments = Enrollment::query()
-            ->with(['student', 'schoolClass', 'session'])
+            ->with(['student', 'schoolClass.school', 'session'])
             ->where('school_class_id', (int) $validated['school_class_id'])
             ->where('session_id', (int) $term->session_id)
             ->whereHas('student')
@@ -333,7 +333,7 @@ class ReportCardController extends Controller
 
         $term = Term::query()->find($termId);
 
-        $reportEnrollment = $report['enrollment']->loadMissing(['schoolClass.school', 'session']);
+        $reportEnrollment = $report['enrollment']->load(['schoolClass.school', 'session']);
 
         if ($reportEnrollment->schoolClass && ! $reportEnrollment->schoolClass->school) {
             $fallbackSchool = School::first();
@@ -443,7 +443,7 @@ class ReportCardController extends Controller
     private function resolveStudentEnrollment(int $studentId, ?int $sessionId = null): ?Enrollment
     {
         return Enrollment::query()
-            ->with(['student', 'schoolClass', 'session'])
+            ->with(['student', 'schoolClass.school', 'session'])
             ->where('student_id', $studentId)
             ->when(
                 $sessionId,
