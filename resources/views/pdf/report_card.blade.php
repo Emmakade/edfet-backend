@@ -24,6 +24,9 @@ $schoolAddress = $school->address ?? null;
 $schoolMailbox = $school->mailbox ?? null;
 $schoolPhone = $school->phone ?? null;
 $schoolMotto = $school->motto ?? null;
+$attendanceOpened = $attendance->times_school_opened ?? 0;
+$attendancePresent = $attendance->times_present ?? 0;
+$nextTermBegins = $school?->next_term_begins ? $school->next_term_begins->format('M j, Y') : 'N/A';
 
 $performancePalette = static function ($score) {
     $score = (float) $score;
@@ -397,6 +400,20 @@ $overallPalette = $performancePalette($averageScore);
                             <span class="status-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }};">
                                 {{ $overallPalette['label'] }}
                             </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="info-label">Days School Opened</span>
+                            <span class="info-value">{{ $attendanceOpened }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Days Present</span>
+                            <span class="info-value">{{ $attendancePresent }}</span>
+                        </td>
+                        <td>
+                            <span class="info-label">Next Term Begins</span>
+                            <span class="info-value">{{ $nextTermBegins }}</span>
                         </td>
                     </tr>
                 </table>

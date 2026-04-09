@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\Term;
@@ -331,7 +332,12 @@ class ReportCardController extends Controller
 
         $term = Term::query()->find($termId);
 
-        $reportEnrollment = $report['enrollment']->loadMissing(['schoolClass', 'session']);
+        $reportEnrollment = $report['enrollment']->loadMissing(['schoolClass.school', 'session']);
+
+        $attendance = Attendance::where('student_id', $enrollment->student_id)
+            ->where('session_id', $enrollment->session_id)
+            ->where('term_id', $termId)
+            ->first();
 
         return [
             'student' => $report['student'],
@@ -340,6 +346,7 @@ class ReportCardController extends Controller
             'result' => $report['result'],
             'remark' => $remark,
             'term' => $term,
+            'attendance' => $attendance,
         ];
     }
 
@@ -364,6 +371,7 @@ class ReportCardController extends Controller
             'result' => $payload['result'],
             'remark' => $payload['remark'],
             'term' => $payload['term'],
+            'attendance' => $payload['attendance'],
         ])->setPaper('a4', 'portrait');
     }
 
