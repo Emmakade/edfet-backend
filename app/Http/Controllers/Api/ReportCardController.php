@@ -90,6 +90,12 @@ class ReportCardController extends Controller
 
     public function downloadClassPdf(Request $request)
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
+        ini_set('memory_limit', '512M');
+
         $validated = $request->validate([
             'school_class_id' => ['required', 'exists:school_classes,id'],
             'term_id' => ['required', 'exists:terms,id'],
@@ -413,7 +419,12 @@ class ReportCardController extends Controller
         if (! preg_match('/^(data:|file:\/\/|\/|[A-Za-z]:\\\\)/', $logo)) {
             $local = public_path(ltrim($logo, '/\\'));
             if (file_exists($local)) {
-                return $local;
+                $contents = file_get_contents($local);
+                $extension = strtolower(pathinfo($local, PATHINFO_EXTENSION));
+                $mime = in_array($extension, ['png', 'jpg', 'jpeg', 'gif'], true)
+                    ? 'image/' . ($extension === 'jpg' ? 'jpeg' : $extension)
+                    : 'image/png';
+                return 'data:' . $mime . ';base64,' . base64_encode($contents);
             }
         }
 
@@ -483,6 +494,12 @@ class ReportCardController extends Controller
                 (int) $enrollment->session_id
             );
         }
+
+        $this->resultComputationService->removeUnassignedSubjectResults(
+            (int) $enrollment->id,
+            $termId,
+            (int) $enrollment->session_id
+        );
 
         $this->resultComputationService->computeClassSubjectStats(
             (int) $enrollment->school_class_id,

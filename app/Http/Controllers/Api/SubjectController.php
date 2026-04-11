@@ -36,12 +36,12 @@ class SubjectController extends Controller
 
     public function getByClass(Request $request, $classId)
     {
+        $sessionId = $request->integer('session_id');
+
         $subjects = ClassSubject::query()
             ->with(['subject', 'teacher'])
             ->where('school_class_id', $classId)
-            ->when($request->filled('session_id'), function ($query) use ($request) {
-                $query->where('session_id', $request->integer('session_id'));
-            })
+            ->where('session_id', $sessionId)
             ->get();
 
         return response()->json([

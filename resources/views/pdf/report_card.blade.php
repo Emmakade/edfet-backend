@@ -27,6 +27,7 @@ $schoolMotto = $school->motto ?? null;
 $attendanceOpened = $attendance->times_school_opened ?? 0;
 $attendancePresent = $attendance->times_present ?? 0;
 $nextTermBegins = $school?->next_term_begins ? $school->next_term_begins->format('M j, Y') : 'N/A';
+$hmsign = $hmsign ?? $schoolExtra['hm_sign'] ?? $schoolExtra['sign'] ?? null;
 
 $performancePalette = static function ($score) {
     $score = (float) $score;
@@ -54,7 +55,7 @@ $overallPalette = $performancePalette($averageScore);
 <head>
     <meta charset="utf-8">
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin:0; padding:0; }
         body {
             margin: 0;
             color: #1f2937;
@@ -103,6 +104,10 @@ $overallPalette = $performancePalette($averageScore);
             object-fit: contain;
             margin-top: 3px;
         }
+
+        .school-sign {
+            height: 30px
+        }
         .school-logo-fallback {
             display: inline-block;
             margin-top: 22px;
@@ -114,7 +119,7 @@ $overallPalette = $performancePalette($averageScore);
             vertical-align: top;
         }
         .school-name {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             letter-spacing: 0.06em;
             text-transform: uppercase;
@@ -326,12 +331,12 @@ $overallPalette = $performancePalette($averageScore);
                         </div>
                     </td>
                     <td class="school-meta-cell">
-                        <div class="school-name">GOMAL BAPTIST</div>
+                        <div class="school-name">GOMAL BAPTIST NURSERY AND PRIMARY SCHOOL</div>
                         @if($schoolAddress)
                             <div class="school-line">Old Osogbo road, Ogbomoso</div>
                         @endif
                         <div class="school-line">
-                                P.O. Box: 1981, Ogbomoso
+                                P.O. Box: 1981
                             @if($schoolMailbox && ($schoolPhone || $schoolEmail))
                                 &nbsp; | &nbsp;
                             @endif
@@ -427,7 +432,7 @@ $overallPalette = $performancePalette($averageScore);
                             <th style="width: 24%;">Subject</th>
                             @if(isset($subjects[0]))
                                 @foreach($subjects[0]->assessments as $assessment)
-                                    <th class="text-center">{{ $assessment->name }}</th>
+                                    <th class="text-center">{{ $assessment->name }}({{$assessment->max_score}})</th>
                                 @endforeach
                             @endif
                             <th class="text-center">Total</th>
@@ -514,14 +519,19 @@ $overallPalette = $performancePalette($averageScore);
                     <div class="remark-value">{{ $remark->class_teacher_remark ?: 'No teacher remark available.' }}</div>
                 </div>
                 <div class="remark-block">
-                    <span class="remark-label">Head Teacher's Remark</span>
+                    <span class="remark-label">Head Teacher's Remark</span> 
+                    <span> {{$hmsign}}</span> <img src="{{ $hmsign }}" class="school-sign">
                     <div class="remark-value">{{ $remark->head_teacher_remark ?: 'No head teacher remark available.' }}</div>
                 </div>
             </div>
 
+            <div class="footer-note" style="margin-top: 8px; font-size: 8px; color: #6b7280;">
+                <strong>Key to Rating:</strong> (70-100: A, Excellent) | (60-69: B, Very Good) | (50-59: C, Good) | (45-49: D, Fair) | (40-44: E, Pass) | (0-39: F, Fail)
+            </div>
             <div class="footer-note">
                 This report card was generated electronically and is valid without manual alteration.
             </div>
+
         </div>
     </div>
 </div>

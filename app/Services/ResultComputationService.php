@@ -94,10 +94,44 @@ class ResultComputationService
         );
     }
 
+    public function removeUnassignedSubjectResults(int $enrollmentId, int $termId, int $sessionId): void
+    {
+        $enrollment = Enrollment::query()->find($enrollmentId);
+
+        if (! $enrollment) {
+            return;
+        }
+
+        $assignedSubjectIds = ClassSubject::query()
+            ->where('school_class_id', $enrollment->school_class_id)
+            ->where('session_id', $sessionId)
+            ->pluck('subject_id');
+
+        $query = SubjectResult::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->where('term_id', $termId);
+
+        if ($assignedSubjectIds->isNotEmpty()) {
+            $query->whereNotIn('subject_id', $assignedSubjectIds);
+        }
+
+        $query->delete();
+    }
+
     public function computeOverallResults(int $classId, int $termId, int $sessionId): void
     {
+        $assignedSubjectIds = ClassSubject::query()
+            ->where('school_class_id', $classId)
+            ->where('session_id', $sessionId)
+            ->pluck('subject_id');
+
+        if ($assignedSubjectIds->isEmpty()) {
+            return;
+        }
+
         $results = SubjectResult::query()
             ->where('term_id', $termId)
+            ->whereIn('subject_id', $assignedSubjectIds)
             ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
                 $q->where('school_class_id', $classId)
                     ->where('session_id', $sessionId);
@@ -151,8 +185,18 @@ class ResultComputationService
 
     public function computeClassSubjectStats(int $classId, int $termId, int $sessionId): void
     {
+        $assignedSubjectIds = ClassSubject::query()
+            ->where('school_class_id', $classId)
+            ->where('session_id', $sessionId)
+            ->pluck('subject_id');
+
+        if ($assignedSubjectIds->isEmpty()) {
+            return;
+        }
+
         $results = SubjectResult::query()
             ->where('term_id', $termId)
+            ->whereIn('subject_id', $assignedSubjectIds)
             ->whereHas('enrollment', function ($q) use ($classId, $sessionId) {
                 $q->where('school_class_id', $classId)
                     ->where('session_id', $sessionId);

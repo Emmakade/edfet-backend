@@ -26,6 +26,7 @@ class ResultBuilderService
             ->with('subject')
             ->where('school_class_id', $enrollment->school_class_id)
             ->where('session_id', $enrollment->session_id)
+            ->whereHas('subject')
             ->orderBy('subject_id')
             ->get();
 

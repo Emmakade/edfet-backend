@@ -79,6 +79,16 @@ class StudentController extends Controller
                 );
             }
 
+            if (! empty($data['school_class_id']) && ! empty($data['session_id'])) {
+                Enrollment::firstOrCreate([
+                    'student_id' => $student->id,
+                    'school_class_id' => $data['school_class_id'],
+                    'session_id' => $data['session_id'],
+                ], [
+                    'status' => 'active',
+                ]);
+            }
+
             return $student->fresh(['schoolClass', 'enrollments.schoolClass']);
         });
 
