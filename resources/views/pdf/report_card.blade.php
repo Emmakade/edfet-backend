@@ -350,8 +350,7 @@ $overallPalette = $performancePalette($averageScore);
                                 Email: {{ $schoolEmail }}
                             @endif
                         </div>
-                        
-                            <div class="school-motto">Arise and Shine</div>
+                        <div class="school-motto">Arise and Shine</div>
                         
                     </td>
                 </tr>
@@ -454,7 +453,7 @@ $overallPalette = $performancePalette($averageScore);
                                         $assessmentPalette = $performancePalette($assessment->score ?? 0);
                                     @endphp
                                     <td class="text-center">
-                                        <span class="score-chip" style="background: {{ $assessmentPalette['bg'] }}; color: {{ $assessmentPalette['text'] }};">
+                                        <span class="score-chip" style="background: #f5f5f5; color: #606060;">
                                             {{ $assessment->score ?? 0 }}
                                         </span>
                                     </td>
@@ -520,8 +519,8 @@ $overallPalette = $performancePalette($averageScore);
                 </div>
                 <div class="remark-block">
                     <span class="remark-label">Head Teacher's Remark</span> 
-                    <span> {{$hmsign}}</span> <img src="{{ $hmsign }}" class="school-sign">
                     <div class="remark-value">{{ $remark->head_teacher_remark ?: 'No head teacher remark available.' }}</div>
+                    <img src="{{ $hmsign }}" class="school-sign">
                 </div>
             </div>
 
