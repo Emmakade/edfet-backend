@@ -1,0 +1,31 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('api_logs', function (Blueprint $table) {
+            $table->string('ip')->after('id');
+            $table->string('endpoint')->after('ip');
+            $table->string('method', 10)->after('endpoint');
+            $table->unsignedSmallInteger('status_code')->after('method');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('api_logs', function (Blueprint $table) {
+            $table->dropColumn(['ip', 'endpoint', 'method', 'status_code']);
+        });
+    }
+};

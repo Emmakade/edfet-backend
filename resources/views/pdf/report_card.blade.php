@@ -65,7 +65,7 @@ $overallPalette = $performancePalette($averageScore);
             background: #ffffff;
         }
         .page {
-            padding: 24px 16px 18px;
+            padding: 14px 16px;
         }
         .report-shell {
             border: 1px solid #d0d5dd;
@@ -73,15 +73,15 @@ $overallPalette = $performancePalette($averageScore);
             overflow: hidden;
         }
         .hero {
-            padding: 18px 22px 16px;
+            padding: 15px 22px 8px;
             background: #0ea5e9;
             color: #ffffff;
         }
         .school-header {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
+            margin-bottom: 2px;
+            padding-bottom: 4px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.22);
         }
         .school-logo-cell {
@@ -119,7 +119,7 @@ $overallPalette = $performancePalette($averageScore);
             vertical-align: top;
         }
         .school-name {
-            font-size: 18px;
+            font-size: 19px;
             font-weight: bold;
             letter-spacing: 0.06em;
             text-transform: uppercase;
@@ -143,13 +143,13 @@ $overallPalette = $performancePalette($averageScore);
             border-collapse: collapse;
         }
         .hero-title {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: bold;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
         .hero-subtitle {
-            margin-top: 4px;
+            margin-top: 2px;
             font-size: 10px;
             opacity: 0.92;
         }
@@ -168,11 +168,11 @@ $overallPalette = $performancePalette($averageScore);
             letter-spacing: 0.06em;
         }
         .content {
-            padding: 18px;
+            padding: 11px 14px;
             background: #f8fafc;
         }
         .section-title {
-            margin: 0 0 10px;
+            margin: 0 0 6px;
             color: #0369a1; /* cool cyan */
             font-size: 11px;
             font-weight: bold;
@@ -188,11 +188,11 @@ $overallPalette = $performancePalette($averageScore);
             background: #ffffff;
         }
         .info-card {
-            padding: 12px 14px;
+            padding: 5px 14px;
         }
         .info-grid td {
             width: 33.33%;
-            padding: 0 8px 10px 0;
+            padding: 0 8px 8px 0;
             vertical-align: top;
         }
         .info-label {
@@ -207,7 +207,7 @@ $overallPalette = $performancePalette($averageScore);
             color: #0f172a;
         }
         .spacer {
-            height: 14px;
+            height: 10px;
         }
         .marks-wrap {
             border: 1px solid #e0f2fe;
@@ -216,7 +216,7 @@ $overallPalette = $performancePalette($averageScore);
             background: #ffffff;
         }
         .marks-table th {
-            padding: 10px 8px;
+            padding: 6px 8px;
             background: #0ea5e9;
             color: #ffffff;
             border-right: 1px solid rgba(255, 255, 255, 0.2);
@@ -229,16 +229,17 @@ $overallPalette = $performancePalette($averageScore);
             border-right: none;
         }
         .marks-table td {
-            padding: 9px 8px;
+            padding:2px 8px;
             border-top: 1px solid #f2e8e8;
             color: #344054;
         }
         .marks-table tbody tr:nth-child(even) {
-            background: #f0f9ff;
+            background: #f2fbff;
         }
         .subject-name {
             font-weight: bold;
             color: #101828;
+            font-size: 10px;
         }
         .text-center {
             text-align: center;
@@ -257,7 +258,7 @@ $overallPalette = $performancePalette($averageScore);
         }
         .summary-grid td {
             width: 25%;
-            padding: 12px 10px;
+            padding: 4px 8px;
             border-right: 1px solid #f0e0e0;
             vertical-align: top;
         }
@@ -265,8 +266,7 @@ $overallPalette = $performancePalette($averageScore);
             border-right: none;
         }
         .summary-label {
-            display: block;
-            margin-bottom: 6px;
+            display: inline-block;
             color: #667085;
             font-size: 9px;
             text-transform: uppercase;
@@ -274,29 +274,28 @@ $overallPalette = $performancePalette($averageScore);
         }
         .summary-value {
             color: #0284c7;
-            font-size: 16px;
+            font-size: 11px;
             font-weight: bold;
         }
         .summary-note {
             margin-top: 4px;
             color: #475467;
             font-size: 9px;
+            text-transform: lowercase;
         }
         .remark-card {
-            padding: 14px;
+            padding: 10px 12px;
         }
         .remark-block {
             border-left: 4px solid #0ea5e9;
-            padding: 10px 12px;
-            border-radius: 10px;
+            padding: 4px 8px;
+            border-radius: 9px;
             background: #f0f9ff;
         }
         .remark-block:last-child {
             margin-bottom: 0;
         }
         .remark-label {
-            display: block;
-            margin-bottom: 4px;
             color: #667085;
             font-size: 9px;
             font-weight: bold;
@@ -308,7 +307,7 @@ $overallPalette = $performancePalette($averageScore);
             font-size: 11px;
         }
         .footer-note {
-            margin-top: 12px;
+            margin-top: 8px;
             color: #667085;
             font-size: 9px;
             text-align: center;
@@ -333,25 +332,9 @@ $overallPalette = $performancePalette($averageScore);
                     <td class="school-meta-cell">
                         <div class="school-name">GOMAL BAPTIST NURSERY AND PRIMARY SCHOOL</div>
                         @if($schoolAddress)
-                            <div class="school-line">Old Osogbo road, Ogbomoso</div>
+                            <div class="school-line">P.O.{{ $schoolMailbox }} {{ $schoolAddress }}  | Phone: {{ $schoolPhone }} | {{ $schoolMotto }}</div>
                         @endif
-                        <div class="school-line">
-                                P.O. Box: 1981
-                            @if($schoolMailbox && ($schoolPhone || $schoolEmail))
-                                &nbsp; | &nbsp;
-                            @endif
-                            @if($schoolPhone)
-                                Phone: {{ $schoolPhone }}
-                            @endif
-                            @if($schoolPhone && $schoolEmail)
-                                &nbsp; | &nbsp;
-                            @endif
-                            @if($schoolEmail)
-                                Email: {{ $schoolEmail }}
-                            @endif
-                        </div>
-                        <div class="school-motto">Arise and Shine</div>
-                        
+        
                     </td>
                 </tr>
             </table>
@@ -364,6 +347,9 @@ $overallPalette = $performancePalette($averageScore);
                         </div>
                     </td>
                     <td class="hero-badge">
+                        <span class="grade-chip" style="background: #ffffff; color: {{ $overallPalette['text'] }}; font-size: 10px; padding: 8px 10px;">
+                                {{ $overallGrade ?: $overallPalette['label'] }}
+                            </span>
                         <span class="term-pill">{{ $termName }}</span>
                     </td>
                 </tr>
@@ -384,27 +370,34 @@ $overallPalette = $performancePalette($averageScore);
                             <span class="info-value">{{ $student->admission_number ?: 'N/A' }}</span>
                         </td>
                         <td>
-                            <span class="info-label">Gender</span>
-                            <span class="info-value">{{ ucfirst($student->gender ?: 'N/A') }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
                             <span class="info-label">Class</span>
                             <span class="info-value">{{ $enrollment->schoolClass->name ?? 'N/A' }}</span>
                         </td>
                         <td>
-                            <span class="info-label">Session</span>
-                            <span class="info-value">{{ $enrollment->session->name ?? 'N/A' }}</span>
-                        </td>
-                        <td>
-                            <span class="info-label">Overall Status</span>
-                            <span class="status-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }};">
-                                {{ $overallPalette['label'] }}
+                            <span class="info-label">Gender</span>
+                            <span class="info-value" style="color: {{$student->gender == 'male'?  '#0ea5e9': '#ff0000'}}">
+                                @if($student->gender == 'male')
+                                    <i class="fas fa-mars"></i>
+                                @elseif($student->gender == 'female')
+                                    <i class="fas fa-venus"></i>
+                                @else
+                                    <i class="fas fa-question-circle"></i>
+                                @endif
+                                {{ ucfirst($student->gender ?: 'N/A') }}
                             </span>
                         </td>
                     </tr>
                     <tr>
+                          <td>
+                            <span class="info-label">Session</span>
+                            <span class="info-value">{{ $enrollment->session->name ?? 'N/A' }}</span>
+                        </td>
+                        <!-- <td>
+                            <span class="info-label">Overall Status</span>
+                            <span class="status-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }};">
+                                {{ $overallPalette['label'] }}
+                            </span>
+                        </td> -->
                         <td>
                             <span class="info-label">Days School Opened</span>
                             <span class="info-value">{{ $attendanceOpened }}</span>
@@ -453,19 +446,17 @@ $overallPalette = $performancePalette($averageScore);
                                         $assessmentPalette = $performancePalette($assessment->score ?? 0);
                                     @endphp
                                     <td class="text-center">
-                                        <span class="score-chip" style="background: #f5f5f5; color: #606060;">
                                             {{ $assessment->score ?? 0 }}
-                                        </span>
                                     </td>
                                 @endforeach
 
                                 <td class="text-center">
-                                    <span class="score-chip" style="background: {{ $subjectPalette['bg'] }}; color: {{ $subjectPalette['text'] }};">
+                                    <span style="font-weight: bold; color: {{ $subjectPalette['text'] }};">
                                         {{ $subject->total ?? 0 }}
                                     </span>
                                 </td>
                                 <td class="text-center">
-                                    <span class="grade-chip" style="background: {{ $subjectPalette['bg'] }}; color: {{ $subjectPalette['text'] }};">
+                                    <span style="font-weight: bold; color: {{ $subjectPalette['text'] }};">
                                         {{ $subject->grade ?? '-' }}
                                     </span>
                                 </td>
@@ -484,25 +475,25 @@ $overallPalette = $performancePalette($averageScore);
                 <table class="summary-grid">
                     <tr>
                         <td>
-                            <span class="summary-label">Total Score</span>
+                            <div class="summary-label"><span>Total Score</span>
                             <span class="summary-value">{{ number_format((float) ($result->total_score ?? 0), 0) }}</span>
-                            <div class="summary-note">Combined score across all subjects</div>
+                            <div class="summary-note">Combined score across all subj.</div>
                         </td>
                         <td>
-                            <span class="summary-label">Average</span>
-                            <span class="summary-value">{{ number_format($averageScore, 1) }}</span>
+                            <div class="summary-label"><span>Average</span>
+                            <span class="summary-value">{{ number_format($averageScore, 1) }}</span></div>
                             <div class="summary-note">Overall class performance average</div>
                         </td>
                         <td>
-                            <span class="summary-label">Position</span>
-                            <span class="summary-value">{{ $overallPosition }}</span>
+                            <div class="summary-label"><span>Position</span>
+                            <span class="summary-value">{{ $overallPosition }}</span></div>
                             <div class="summary-note">Student rank in class</div>
                         </td>
                         <td>
-                            <span class="summary-label">Grade / Status</span>
-                            <span class="grade-chip" style="background: {{ $overallPalette['bg'] }}; color: {{ $overallPalette['text'] }}; font-size: 10px; padding: 6px 10px;">
+                            <div class="summary-label"><span>Status</span>
+                            <span style="color: {{ $overallPalette['text'] }}; font-size: 10px; padding: 4px 8px; font-weight: bold; background: {{ $overallPalette['bg'] }}; border-radius: 999px;">
                                 {{ $overallGrade ?: $overallPalette['label'] }}
-                            </span>
+                            </span></div>
                             <div class="summary-note">Performance band for this term</div>
                         </td>
                     </tr>
@@ -514,12 +505,12 @@ $overallPalette = $performancePalette($averageScore);
             <p class="section-title">Remarks</p>
             <div class="remark-card">
                 <div class="remark-block">
-                    <span class="remark-label">Class Teacher's Remark</span>
-                    <div class="remark-value">{{ $remark->class_teacher_remark ?: 'No teacher remark available.' }}</div>
+                    <span class="remark-label">Class Teacher's Remark:</span>
+                    <span class="remark-value">{{ $remark->class_teacher_remark ?: 'No teacher remark available.' }}</span>
                 </div>
                 <div class="remark-block">
-                    <span class="remark-label">Head Teacher's Remark</span> 
-                    <div class="remark-value">{{ $remark->head_teacher_remark ?: 'No head teacher remark available.' }}</div>
+                    <span class="remark-label">Head Teacher's Remark:</span> 
+                    <span class="remark-value">{{ $remark->head_teacher_remark ?: 'No head teacher remark available.' }}</span>
                     <img src="{{ $hmsign }}" class="school-sign">
                 </div>
             </div>
@@ -527,9 +518,9 @@ $overallPalette = $performancePalette($averageScore);
             <div class="footer-note" style="margin-top: 8px; font-size: 8px; color: #6b7280;">
                 <strong>Key to Rating:</strong> (70-100: A, Excellent) | (60-69: B, Very Good) | (50-59: C, Good) | (45-49: D, Fair) | (40-44: E, Pass) | (0-39: F, Fail)
             </div>
-            <div class="footer-note">
-                This report card was generated electronically and is valid without manual alteration.
-            </div>
+            <!-- <div class="footer-note">
+                Note: This report card was generated electronically and is valid without manual alteration.
+            </div> -->
 
         </div>
     </div>

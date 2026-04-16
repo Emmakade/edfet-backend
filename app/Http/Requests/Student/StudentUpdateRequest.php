@@ -35,6 +35,13 @@ class StudentUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique('students', 'login_email')->ignore($studentId),
             ],
+            'admission_number' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('students', 'admission_number')->ignore($studentId),
+            ],
             'create_login_account' => ['sometimes', 'nullable', 'boolean'],
             'login_password' => ['sometimes', 'nullable', 'string', 'min:6'],
         ];

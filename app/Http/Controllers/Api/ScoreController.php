@@ -494,10 +494,8 @@ class ScoreController extends Controller
                 $row['subjects'][] = [
                     'subject_id' => $subjectId,
                     'subject_name' => $classSubject->subject?->name,
-                    'scores' => $assessmentScores,
+                    'assessments' => $assessmentScores,
                     'total_score' => $subjectTotal,
-                    'grade' => $subjectResult?->grade,
-                    'remark' => $subjectResult?->remark,
                     'class_average' => $subjectResult?->class_average,
                     'class_highest' => $subjectResult?->class_highest,
                     'class_lowest' => $subjectResult?->class_lowest,

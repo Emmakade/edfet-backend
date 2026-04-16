@@ -7,6 +7,7 @@ use App\Exports\StudentsWithEnrollmentsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Student\StudentStoreRequest;
 use App\Http\Requests\Student\StudentUpdateRequest;
+use App\Http\Requests\Student\StudentProfileUpdateRequest;
 use App\Imports\StudentsImport;
 use App\Models\ClassSubject;
 use App\Models\Enrollment;
@@ -131,6 +132,7 @@ class StudentController extends Controller
                 'number_in_class' => array_key_exists('number_in_class', $data) ? $data['number_in_class'] : $student->number_in_class,
                 'school_class_id' => array_key_exists('school_class_id', $data) ? $data['school_class_id'] : $student->school_class_id,
                 'login_email' => array_key_exists('login_email', $data) ? $data['login_email'] : $student->login_email,
+                'admission_number' => array_key_exists('admission_number', $data) ? $data['admission_number'] : $student->admission_number,
             ]);
 
             if (!empty($data['school_class_id']) && !empty($data['session_id'])) {
@@ -410,6 +412,62 @@ class StudentController extends Controller
             'status' => 'success',
             'data' => $subjects,
             'count' => $subjects->count(),
+        ]);
+    }
+
+    public function myProfile(Request $request)
+    {
+        $student = $request->user()->student;
+
+        if (!$student) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No student profile found for this user.',
+            ], 404);
+        }
+
+        $student->load([
+            'user',
+            'schoolClass',
+            'currentEnrollment.schoolClass',
+            'enrollments.schoolClass',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $student,
+        ]);
+    }
+
+    public function updateMyProfile(StudentProfileUpdateRequest $request)
+    {
+        $student = $request->user()->student;
+
+        if (!$student) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No student profile found for this user.',
+            ], 404);
+        }
+
+        $data = $request->validated();
+
+        $student->update([
+            'phone_number' => array_key_exists('phone_number', $data) ? $data['phone_number'] : $student->phone_number,
+            'photo_url' => array_key_exists('photo_url', $data) ? $data['photo_url'] : $student->photo_url,
+            'date_of_birth' => array_key_exists('date_of_birth', $data) ? $data['date_of_birth'] : $student->date_of_birth,
+        ]);
+
+        $student->load([
+            'user',
+            'schoolClass',
+            'currentEnrollment.schoolClass',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profile updated successfully',
+            'data' => $student,
         ]);
     }
 

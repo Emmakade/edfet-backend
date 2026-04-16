@@ -63,6 +63,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('export', [StudentController::class, 'export']);
         Route::get('{studentId}/subjects/{sessionId}', [ClassSubjectController::class, 'getStudentSubjects']);
     });
+
+    // Admin student profile management
+    Route::get('students/{student}/profile', [StudentController::class, 'show']);
+    Route::put('students/{student}/profile', [StudentController::class, 'update']);
+
     Route::apiResource('students', StudentController::class);
 
     //Students Account
@@ -131,6 +136,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('dashboard/school-stats', [DashboardController::class, 'schoolStats']);
     Route::get('dashboard/class-performance/{classId}/{termId}/{sessionId}', [DashboardController::class, 'classPerformance']);
     Route::get('dashboard/student-progress/{studentId}', [DashboardController::class, 'studentProgress']);
+
+    // Student Profile Management
+    Route::get('me/profile', [StudentController::class, 'myProfile']);
+    Route::put('me/profile', [StudentController::class, 'updateMyProfile']);
 
     Route::get('current-session', [SessionController::class, 'current']);
     Route::get('current-term', [TermController::class, 'current']);

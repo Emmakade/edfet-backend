@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\School;
 use App\Models\SchoolClass;
-use App\Models\Student;
 use App\Models\Score;
-use Illuminate\Http\Request;
+use App\Models\SessionModel;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\User;
 
 class DashboardController extends Controller
 {
@@ -16,8 +17,9 @@ class DashboardController extends Controller
         $stats = [
             'total_students' => Student::count(),
             'total_classes' => SchoolClass::count(),
-            'total_subjects' => \App\Models\Subject::count(),
-            'active_sessions' => \App\Models\SessionModel::where('active', true)->count(),
+            'total_teachers' => User::role(['class-teacher', 'subject-teacher'])->count(),
+            'total_subjects' => Subject::count(),
+            'active_sessions' => SessionModel::where('active', true)->count(),
         ];
 
         return response()->json($stats);
@@ -25,13 +27,12 @@ class DashboardController extends Controller
 
     public function classPerformance($classId, $termId, $sessionId)
     {
-        $scores = Score::whereHas('student', function($q) use ($classId) {
-            $q->where('school_class_id', $classId);
-        })
-        ->where('term_id', $termId)
-        ->where('session_id', $sessionId)
-        ->with('student', 'subject')
-        ->get();
+        $scores = Score::query()
+            ->where('scores.school_class_id', $classId)
+            ->where('scores.term_id', $termId)
+            ->where('scores.session_id', $sessionId)
+            ->with(['student', 'subject'])
+            ->get();
 
         $performance = $scores->groupBy('subject.name')->map(function($subjectScores) {
             return [
